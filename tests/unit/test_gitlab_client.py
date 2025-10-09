@@ -1,10 +1,10 @@
 """Unit tests for GitLabClient class."""
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
-from repo_cloner.gitlab_client import GitLabClient, ProjectDetails
+from repo_cloner.gitlab_client import GitLabClient
 
 
 @pytest.mark.unit

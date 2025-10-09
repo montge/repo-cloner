@@ -2,7 +2,7 @@
 
 from typing import Dict, List, Optional
 
-from github import Github, GithubException, UnknownObjectException
+from github import Github, UnknownObjectException
 
 
 class GitHubClient:

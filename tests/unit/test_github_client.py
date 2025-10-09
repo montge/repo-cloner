@@ -106,7 +106,7 @@ class TestGitHubClient:
         client = GitHubClient(token="test-token", gh_instance=mock_gh)
 
         # Act
-        result = client.create_repository(
+        client.create_repository(
             org_name="org",
             repo_name="tagged-repo",
             description="Repo with topics",

@@ -6,7 +6,7 @@ import pytest
 from github import UnknownObjectException
 
 from repo_cloner.github_client import GitHubClient
-from repo_cloner.gitlab_client import GitLabClient, ProjectDetails
+from repo_cloner.gitlab_client import GitLabClient
 from repo_cloner.group_mapper import GroupMapper
 from repo_cloner.metadata_mapper import MetadataMapper
 
@@ -256,7 +256,6 @@ class TestDiscoveryFlow:
         group_mapper = GroupMapper(
             mapping={"specific-group": "specific-org"}, default_org="catch-all-org"
         )
-        metadata_mapper = MetadataMapper()
 
         # Act
         projects = gitlab_client.list_projects("random-group")
