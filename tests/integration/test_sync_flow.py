@@ -29,7 +29,7 @@ class TestSyncFlow:
             initial_commit = source_repo.index.commit("Initial commit")
 
             # Create target repository (empty bare repo)
-            target_repo = git.Repo.init(target_path, bare=True)
+            _target_repo = git.Repo.init(target_path, bare=True)  # noqa: F841
 
             # Initialize components
             engine = SyncEngine()
@@ -56,7 +56,7 @@ class TestSyncFlow:
             # Act - Step 2: Make changes on source
             (source_path / "file2.txt").write_text("New file on source")
             source_repo.index.add(["file2.txt"])
-            new_commit = source_repo.index.commit("Add file2")
+            _new_commit = source_repo.index.commit("Add file2")  # noqa: F841
 
             # Detect changes
             previous_state = state_manager.load_state("test-repo")
@@ -203,7 +203,7 @@ class TestSyncFlow:
             source_repo.heads.master.checkout()
 
             # Create target (bare)
-            target_repo = git.Repo.init(target_path, bare=True)
+            _target_repo = git.Repo.init(target_path, bare=True)  # noqa: F841
 
             # Act - Sync with mirror strategy (all branches)
             engine = SyncEngine()

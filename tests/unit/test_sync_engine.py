@@ -2,7 +2,6 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock
 
 import git
 import pytest
@@ -129,7 +128,7 @@ class TestSyncEngine:
             source_repo.index.commit("Initial commit")
 
             # Create target repository (empty)
-            target_repo = git.Repo.init(target_path, bare=True)
+            _target_repo = git.Repo.init(target_path, bare=True)  # noqa: F841
 
             # Create SyncEngine
             engine = SyncEngine()
@@ -186,7 +185,7 @@ class TestSyncEngine:
             repo1 = git.Repo.init(repo1_path)
             (repo1_path / "file.txt").write_text("initial")
             repo1.index.add(["file.txt"])
-            base_commit = repo1.index.commit("Base commit")
+            _base_commit = repo1.index.commit("Base commit")  # noqa: F841
 
             # Clone to repo2
             repo2 = repo1.clone(repo2_path)
@@ -195,12 +194,12 @@ class TestSyncEngine:
             # Repo1: add commit A
             (repo1_path / "file.txt").write_text("version A")
             repo1.index.add(["file.txt"])
-            commit_a = repo1.index.commit("Commit A on repo1")
+            _commit_a = repo1.index.commit("Commit A on repo1")  # noqa: F841
 
             # Repo2: add commit B (different content)
             (repo2_path / "file.txt").write_text("version B")
             repo2.index.add(["file.txt"])
-            commit_b = repo2.index.commit("Commit B on repo2")
+            _commit_b = repo2.index.commit("Commit B on repo2")  # noqa: F841
 
             # Act - Detect conflicts
             engine = SyncEngine()
@@ -228,7 +227,7 @@ class TestSyncEngine:
             repo1.index.commit("Initial commit")
 
             # Clone to repo2
-            repo2 = repo1.clone(repo2_path)
+            _repo2 = repo1.clone(repo2_path)  # noqa: F841
 
             # Add commit only to repo1 (repo2 can fast-forward)
             (repo1_path / "file2.txt").write_text("new file")
