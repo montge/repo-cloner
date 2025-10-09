@@ -145,3 +145,79 @@ class FlattenMapper:
         # Cannot uniquely reverse flatten operation without additional context
         # Return as-is to indicate this limitation
         return github_name
+
+
+class PrefixMapper:
+    """
+    Maps GitLab repositories to GitHub with a prefix, dropping parent group paths.
+
+    Extracts only the repository name (last component of path) and adds a prefix.
+    For example: "backend/api-service" with prefix "be" becomes "be-api-service"
+    """
+
+    def __init__(self, prefix: Optional[str] = None, separator: str = "-"):
+        """
+        Initialize PrefixMapper.
+
+        Args:
+            prefix: Prefix to add to repository names (default: None)
+            separator: Character to use between prefix and repo name (default: "-")
+        """
+        self.prefix = prefix
+        self.separator = separator
+
+    def map(self, gitlab_path: str) -> str:
+        """
+        Map GitLab path to GitHub repository name with prefix.
+
+        Extracts the repository name (last component) from the path and
+        optionally prepends a prefix.
+
+        Args:
+            gitlab_path: GitLab repository path (e.g., "group/subgroup/repo")
+
+        Returns:
+            GitHub repository name with prefix (e.g., "prefix-repo")
+
+        Raises:
+            ValueError: If gitlab_path is empty
+            TypeError: If gitlab_path is None
+        """
+        if gitlab_path is None:
+            raise TypeError("gitlab_path cannot be None")
+
+        if not gitlab_path or not gitlab_path.strip():
+            raise ValueError("gitlab_path cannot be empty")
+
+        # Normalize path: remove leading/trailing slashes, collapse multiple slashes
+        normalized = re.sub(r"/+", "/", gitlab_path.strip("/"))
+
+        # Extract repository name (last component)
+        parts = normalized.split("/")
+        repo_name = parts[-1]
+
+        # Add prefix if provided
+        if self.prefix:
+            github_name = f"{self.prefix}{self.separator}{repo_name}"
+        else:
+            github_name = repo_name
+
+        return github_name
+
+    def reverse(self, github_name: str) -> str:
+        """
+        Reverse mapping from GitHub name to GitLab path.
+
+        Note: This is not a true reverse operation as the original path
+        structure cannot be uniquely determined from the prefixed name.
+        Returns the name as-is for informational purposes.
+
+        Args:
+            github_name: GitHub repository name
+
+        Returns:
+            The same name (cannot uniquely reverse prefix operation)
+        """
+        # Cannot uniquely reverse prefix operation without additional context
+        # Return as-is to indicate this limitation
+        return github_name
