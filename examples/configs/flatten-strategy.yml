@@ -1,0 +1,27 @@
+# Flatten Strategy Example
+# Converts nested GitLab groups to flat GitHub repository names
+# Example: company/backend/api-service -> company-backend-api-service
+
+gitlab:
+  url: https://gitlab.example.com
+  token: ${GITLAB_TOKEN}
+
+github:
+  url: https://github.com
+  token: ${GITHUB_TOKEN}
+
+# Flatten strategy preserves full hierarchy in repository name
+mapping_strategy: flatten
+
+groups:
+  # Maps: company/backend/services/api -> company-backend-services-api
+  - source: company/backend
+    target_org: company-oss
+
+  # Maps: company/frontend/web/app -> company-frontend-web-app
+  - source: company/frontend
+    target_org: company-oss
+
+  # Maps: company/infra/kubernetes/deployments -> company-infra-kubernetes-deployments
+  - source: company/infra
+    target_org: company-infrastructure

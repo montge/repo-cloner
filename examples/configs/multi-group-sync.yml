@@ -1,0 +1,80 @@
+# Multi-Group Sync Configuration
+# Demonstrates syncing multiple GitLab groups to different GitHub organizations
+
+gitlab:
+  url: https://gitlab.company.com
+  token: ${GITLAB_TOKEN}
+
+github:
+  url: https://github.com
+  token: ${GITHUB_TOKEN}
+
+mapping_strategy: prefix
+
+groups:
+  # Backend team - microservices
+  - source: engineering/backend/microservices
+    target_org: company-backend
+    prefix: svc
+    exclude:
+      - engineering/backend/microservices/deprecated
+      - engineering/backend/microservices/experimental
+    lfs_enabled: false
+    sync_strategy: incremental
+
+  # Backend team - libraries
+  - source: engineering/backend/libraries
+    target_org: company-backend
+    prefix: lib
+    lfs_enabled: false
+
+  # Frontend team
+  - source: engineering/frontend
+    target_org: company-frontend
+    prefix: fe
+    lfs_enabled: false
+
+  # Mobile team - iOS
+  - source: engineering/mobile/ios
+    target_org: company-mobile
+    prefix: ios
+    lfs_enabled: true  # Xcode projects with large assets
+
+  # Mobile team - Android
+  - source: engineering/mobile/android
+    target_org: company-mobile
+    prefix: android
+    lfs_enabled: true  # Android resources and assets
+
+  # Data team
+  - source: data-science/models
+    target_org: company-data
+    prefix: ml
+    lfs_enabled: true  # Large model files
+    exclude:
+      - data-science/models/experiments
+
+  # DevOps/Infrastructure
+  - source: devops/infrastructure
+    target_org: company-infrastructure
+    prefix: infra
+    clone_depth: 1  # Shallow clone for large repos
+    lfs_enabled: false
+
+  # Design team
+  - source: design/ui-kits
+    target_org: company-design
+    prefix: design
+    lfs_enabled: true  # Large design files (Figma exports, PSDs)
+
+  # Documentation
+  - source: documentation
+    target_org: company-docs
+    # No prefix - use repo names as-is
+    lfs_enabled: false
+
+  # Open source projects
+  - source: opensource
+    target_org: company-oss
+    lfs_enabled: false
+    sync_strategy: mirror  # Full mirror for public repos

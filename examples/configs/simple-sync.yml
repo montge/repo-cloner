@@ -1,0 +1,17 @@
+# Simple GitLab to GitHub Sync Configuration
+# This is the minimal configuration needed to sync repositories
+
+gitlab:
+  url: https://gitlab.com
+  token: ${GITLAB_TOKEN}
+
+github:
+  url: https://github.com
+  token: ${GITHUB_TOKEN}
+
+# Mapping strategy: flatten (converts group/subgroup/repo to group-subgroup-repo)
+mapping_strategy: flatten
+
+groups:
+  - source: mycompany/backend
+    target_org: mycompany-github

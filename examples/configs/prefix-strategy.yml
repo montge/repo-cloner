@@ -1,0 +1,40 @@
+# Prefix Strategy Example
+# Adds a prefix to repository names and drops parent group paths
+# Example: company/backend/api-service with prefix "be" -> be-api-service
+
+gitlab:
+  url: https://gitlab.example.com
+  token: ${GITLAB_TOKEN}
+
+github:
+  url: https://github.com
+  token: ${GITHUB_TOKEN}
+
+# Prefix strategy: only uses repository name + prefix
+mapping_strategy: prefix
+
+groups:
+  # Backend services: company/backend/services/api -> backend-api
+  - source: company/backend
+    target_org: company-github
+    prefix: backend
+
+  # Frontend apps: company/frontend/web/dashboard -> fe-dashboard
+  - source: company/frontend
+    target_org: company-github
+    prefix: fe
+
+  # Mobile apps: company/mobile/ios/app -> mobile-app
+  - source: company/mobile
+    target_org: company-github
+    prefix: mobile
+
+  # Data science: company/ml/models/classifier -> ds-classifier
+  - source: company/ml
+    target_org: company-github
+    prefix: ds
+
+  # No prefix example: company/opensource/library -> library
+  - source: company/opensource
+    target_org: company-oss
+    # prefix omitted - uses repository name only

@@ -1,0 +1,48 @@
+# Advanced GitLab to GitHub Sync Configuration
+# Demonstrates all configuration features including env vars, prefixes, exclusions, and LFS
+
+gitlab:
+  url: ${GITLAB_URL:-https://gitlab.com}
+  token: ${GITLAB_TOKEN}
+
+github:
+  url: ${GITHUB_URL:-https://github.com}
+  token: ${GITHUB_TOKEN}
+
+# Mapping strategy: prefix (uses prefix_ + repo name, drops parent groups)
+mapping_strategy: prefix
+
+groups:
+  # Backend services with prefix
+  - source: mycompany/backend
+    target_org: mycompany-github
+    prefix: backend
+    exclude:
+      - mycompany/backend/deprecated-api
+      - mycompany/backend/old-service
+    lfs_enabled: false
+    sync_strategy: incremental
+    dry_run: false
+
+  # Frontend repositories with different prefix
+  - source: mycompany/frontend
+    target_org: mycompany-github
+    prefix: fe
+    lfs_enabled: false
+    sync_strategy: mirror
+
+  # Design team with LFS enabled (large files)
+  - source: mycompany/design
+    target_org: mycompany-github
+    prefix: design
+    lfs_enabled: true
+    sync_strategy: mirror
+    exclude:
+      - mycompany/design/archived-projects
+
+  # Infrastructure repositories (shallow clones for large repos)
+  - source: mycompany/infrastructure
+    target_org: mycompany-infra
+    prefix: infra
+    clone_depth: 1
+    lfs_enabled: false

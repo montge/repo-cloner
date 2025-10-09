@@ -1,0 +1,47 @@
+# Environment Variable Substitution Examples
+# Demonstrates ${VAR} and ${VAR:-default} patterns
+
+gitlab:
+  # Required variable (raises error if GITLAB_URL not set)
+  url: ${GITLAB_URL}
+  # Required token
+  token: ${GITLAB_TOKEN}
+
+github:
+  # Optional with default (uses https://github.com if GITHUB_URL not set)
+  url: ${GITHUB_URL:-https://github.com}
+  # Required token
+  token: ${GITHUB_TOKEN}
+
+# Strategy from environment with default
+mapping_strategy: ${MAPPING_STRATEGY:-flatten}
+
+groups:
+  # Source group from environment
+  - source: ${GITLAB_GROUP}
+    # Target org with default
+    target_org: ${GITHUB_ORG:-mycompany}
+    # Prefix with default
+    prefix: ${REPO_PREFIX:-be}
+    # LFS setting from environment (defaults to false)
+    lfs_enabled: ${ENABLE_LFS:-false}
+    # Sync strategy with default
+    sync_strategy: ${SYNC_STRATEGY:-incremental}
+
+  # Multiple environment variables in one config
+  - source: ${SECONDARY_GROUP:-company/frontend}
+    target_org: ${GITHUB_ORG:-mycompany}
+    prefix: fe
+    exclude:
+      - ${EXCLUDED_REPO_1:-none}
+      - ${EXCLUDED_REPO_2:-none}
+
+# Usage:
+# export GITLAB_URL=https://gitlab.example.com
+# export GITLAB_TOKEN=glpat_xxxxx
+# export GITHUB_TOKEN=ghp_xxxxx
+# export GITLAB_GROUP=mycompany/backend
+# export GITHUB_ORG=mycompany-github
+# export ENABLE_LFS=true
+#
+# repo-cloner sync --config env-var-examples.yml
