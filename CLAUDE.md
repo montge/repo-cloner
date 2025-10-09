@@ -4,22 +4,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**repo-cloner** is a universal Python-based tool for cloning and synchronizing Git repositories between GitLab, GitHub, and S3-compatible storage. It supports bidirectional synchronization, air-gap workflows, and both automated GitHub Actions and manual local execution.
+**repo-cloner** is a universal Python-based tool for cloning and synchronizing Git repositories between GitLab, GitHub, and multiple cloud storage backends. It supports bidirectional synchronization, air-gap workflows, and both automated GitHub Actions and manual local execution.
 
 **Key Features:**
-- Universal repository synchronization (GitLab ↔ GitHub ↔ S3)
+- Universal repository synchronization (GitLab ↔ GitHub ↔ Cloud Storage)
 - Bidirectional sync with conflict detection
 - Full mirror clones with branch, tag, and commit history preservation
 - Git LFS support
 - Organization/group hierarchy mapping between platforms
 - Air-gap environment support with full and incremental archives
+- Multi-cloud and local filesystem storage support
 - Scheduled sync via GitHub Actions or manual CLI execution
 - Handles both cloud (gitlab.com, github.com) and on-premise deployments
 
 **Supported Paths:**
-- GitLab → GitHub, GitHub → GitLab (cross-platform migration)
-- GitLab → GitLab, GitHub → GitHub (instance/org migration)
-- Any platform → S3 (archive), S3 → Any platform (restore)
+- GitLab ↔ GitHub (cross-platform migration and sync)
+- GitLab ↔ GitLab, GitHub ↔ GitHub (instance/org migration)
+- Any platform ↔ Storage (archive/restore for air-gap)
+
+**Storage Backends:**
+- Local Filesystem (including NFS, SMB mounts)
+- AWS S3 (all regions)
+- Azure Blob Storage (all regions)
+- Google Cloud Storage (all regions/multi-regions)
+- Oracle OCI Object Storage (all regions)
+- S3-Compatible (MinIO, Ceph, etc.)
 
 ## Development Approach
 
@@ -111,23 +120,59 @@ python -m repo_cloner archive create \
   --type incremental \
   --base-archive repo-full-20250109.tar.gz
 
-# Upload archives to S3
+# Upload archives to storage backend
+# AWS S3
 python -m repo_cloner archive upload \
   --archives /path/to/archives \
+  --storage-type s3 \
   --bucket my-bucket \
+  --region us-east-1 \
   --prefix backups/
 
-# Restore from S3 archive
-python -m repo_cloner archive restore \
+# Azure Blob Storage
+python -m repo_cloner archive upload \
+  --archives /path/to/archives \
+  --storage-type azure \
+  --container my-container \
+  --account my-storage-account \
+  --region eastus
+
+# Google Cloud Storage
+python -m repo_cloner archive upload \
+  --archives /path/to/archives \
+  --storage-type gcs \
   --bucket my-bucket \
+  --location us-central1
+
+# Oracle OCI Object Storage
+python -m repo_cloner archive upload \
+  --archives /path/to/archives \
+  --storage-type oci \
+  --bucket my-bucket \
+  --namespace my-namespace \
+  --region us-ashburn-1
+
+# Local Filesystem
+python -m repo_cloner archive upload \
+  --archives /path/to/archives \
+  --storage-type filesystem \
+  --path /mnt/backup/repos
+
+# Restore from storage archive
+python -m repo_cloner archive restore \
+  --storage-type s3 \
+  --bucket my-bucket \
+  --region us-east-1 \
   --archive-key backups/repo-full-20250109.tar.gz \
   --incremental backups/repo-inc-*.tar.gz \
   --target https://github.com/org/repo \
   --target-token $GITHUB_TOKEN
 
-# List available archives in S3
+# List available archives
 python -m repo_cloner archive list \
+  --storage-type s3 \
   --bucket my-bucket \
+  --region us-east-1 \
   --prefix backups/
 ```
 
@@ -138,7 +183,11 @@ python -m repo_cloner archive list \
 - **Git Operations**: GitPython + git CLI
 - **API Clients**: PyGithub (GitHub), python-gitlab (GitLab)
 - **Configuration**: YAML with Pydantic validation
-- **Cloud Storage**: boto3 for S3-compatible storage
+- **Cloud Storage SDKs**:
+  - boto3 (AWS S3)
+  - azure-storage-blob (Azure Blob Storage)
+  - google-cloud-storage (GCS)
+  - oci (Oracle Cloud Infrastructure)
 - **CLI Framework**: argparse or click
 - **Testing**: pytest with pytest-cov
 
@@ -223,10 +272,33 @@ targets:
     token: ${GITHUB_TOKEN}
     organization: myorg
 
+  # Multiple storage backends can be configured
   - type: s3
     bucket: my-archives
     region: us-east-1
     prefix: repo-backups/
+    access_key: ${AWS_ACCESS_KEY_ID}
+    secret_key: ${AWS_SECRET_ACCESS_KEY}
+
+  - type: azure
+    container: repo-backups
+    account: mystorageaccount
+    region: eastus
+    connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
+
+  - type: gcs
+    bucket: my-repo-archives
+    location: us-central1
+    service_account_json: ${GCS_SERVICE_ACCOUNT_JSON}
+
+  - type: oci
+    bucket: repo-archives
+    namespace: my-namespace
+    region: us-ashburn-1
+    config_file: ~/.oci/config
+
+  - type: filesystem
+    path: /mnt/backup/repos
 
 # Mapping configuration
 mapping_strategy: flatten  # flatten, prefix, topics, custom
@@ -245,6 +317,7 @@ archive:
   include_lfs: true
   compression: gzip
   base_archive: repo-full-20250109.tar.gz  # for incremental
+  retention_days: 90  # optional: auto-delete old archives
 
 # Repository-specific overrides
 repositories:
@@ -252,6 +325,9 @@ repositories:
     target: myorg/backend-auth-service
     sync_strategy: mirror
     archive_type: incremental
+    storage_backends:  # can specify per-repo storage
+      - s3
+      - azure
 ```
 
 ## Current Status

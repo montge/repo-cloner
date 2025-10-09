@@ -5,13 +5,15 @@
 A flexible tool to clone and synchronize Git repositories between GitLab (self-hosted or gitlab.com), GitHub (Enterprise or github.com), and S3-compatible storage. Supports bidirectional synchronization, air-gap workflows with full and incremental archives, and both automated GitHub Actions workflows and manual local execution.
 
 **Supported Source/Target Combinations:**
-- GitLab ↔ GitHub (bidirectional)
-- GitLab ↔ GitLab (instance-to-instance migration)
-- GitHub ↔ GitHub (org-to-org migration)
-- GitLab → S3 (archive for air-gap)
-- GitHub → S3 (archive for air-gap)
-- S3 → GitLab (restore from air-gap)
-- S3 → GitHub (restore from air-gap)
+- **Git Platforms**: GitLab ↔ GitHub (bidirectional sync and migration)
+- **Platform Migrations**: GitLab ↔ GitLab, GitHub ↔ GitHub (instance/org-to-instance/org)
+- **Storage Backends**: Any Git platform ↔ Storage (archive/restore for air-gap)
+  - Local Filesystem
+  - AWS S3 (all regions)
+  - Azure Blob Storage (all regions)
+  - Google Cloud Storage (all regions)
+  - Oracle Cloud Infrastructure Object Storage (all regions)
+  - S3-compatible storage (MinIO, Ceph, etc.)
 
 ## Functional Requirements
 
@@ -22,12 +24,17 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
 - **FR-1.4**: Handle both public and private repositories
 - **FR-1.5**: Support repository-level metadata (description, topics/tags where applicable)
 - **FR-1.6**: Support all source/target combinations:
-  - **GitLab → GitHub**: Primary use case for cross-platform migration
-  - **GitHub → GitLab**: Reverse migration or backup
-  - **GitLab → GitLab**: Instance-to-instance migration (cloud to self-hosted, etc.)
-  - **GitHub → GitHub**: Organization-to-organization migration
-  - **GitLab ↔ S3**: Archive/restore for air-gap environments
-  - **GitHub ↔ S3**: Archive/restore for air-gap environments
+  - **GitLab ↔ GitHub**: Cross-platform migration and bidirectional sync
+  - **GitLab ↔ GitLab**: Instance-to-instance migration (cloud to self-hosted, etc.)
+  - **GitHub ↔ GitHub**: Organization-to-organization migration
+  - **Any Git platform ↔ Storage**: Archive/restore for air-gap environments
+- **FR-1.7**: Support multiple storage backend types:
+  - **Local Filesystem**: Direct archive to local/network file system paths
+  - **AWS S3**: S3 buckets with region selection (us-east-1, eu-west-1, ap-southeast-1, etc.)
+  - **Azure Blob Storage**: Azure Storage Accounts with region selection
+  - **Google Cloud Storage (GCS)**: GCS buckets with region/multi-region selection
+  - **Oracle OCI Object Storage**: OCI buckets with region selection
+  - **S3-Compatible**: MinIO, Ceph, DigitalOcean Spaces, etc.
 
 ### FR-2: Authentication & Authorization
 - **FR-2.1**: Support GitLab authentication via:
@@ -36,8 +43,14 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
 - **FR-2.2**: Support GitHub authentication via:
   - Personal Access Token
   - GitHub App credentials (for enterprise scenarios)
-- **FR-2.3**: Secure credential management (environment variables, secrets)
-- **FR-2.4**: Support for both cloud and on-premise instances:
+- **FR-2.3**: Support cloud storage authentication:
+  - **AWS S3**: IAM credentials, IAM roles, access keys, session tokens
+  - **Azure Blob**: Connection strings, SAS tokens, Azure AD authentication
+  - **GCS**: Service account JSON keys, OAuth 2.0, ADC (Application Default Credentials)
+  - **Oracle OCI**: API signing keys, instance principals, user credentials
+  - **S3-Compatible**: Access key/secret key pairs
+- **FR-2.4**: Secure credential management (environment variables, secrets, credential files)
+- **FR-2.5**: Support for both cloud and on-premise instances:
   - GitLab: gitlab.com and self-hosted GitLab
   - GitHub: github.com and GitHub Enterprise Server
 
@@ -64,21 +77,33 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
 
 ### FR-5: Air-Gap Environment Support & Archive Management
 - **FR-5.1**: Export repositories to archive format (tar.gz with git bundle)
-- **FR-5.2**: Upload archives to S3-compatible storage (AWS S3, MinIO, etc.)
-- **FR-5.3**: Support other storage backends (Azure Blob, GCS)
+- **FR-5.2**: Upload archives to multiple storage backends:
+  - **Local Filesystem**: Absolute or relative paths, network mounts (NFS, SMB)
+  - **AWS S3**: Bucket + key with region specification
+  - **Azure Blob Storage**: Container + blob with storage account region
+  - **GCS**: Bucket + object with location (region/multi-region/dual-region)
+  - **Oracle OCI Object Storage**: Bucket + object with namespace and region
+  - **S3-Compatible**: Custom endpoint URL with bucket/key
+- **FR-5.3**: Support region selection for cloud storage:
+  - **AWS**: us-east-1, us-west-2, eu-west-1, ap-southeast-1, etc. (all regions)
+  - **Azure**: eastus, westeurope, southeastasia, etc. (all regions)
+  - **GCS**: us-central1, europe-west1, asia-east1, multi-region (US, EU, ASIA)
+  - **Oracle OCI**: us-ashburn-1, us-phoenix-1, eu-frankfurt-1, etc. (all regions)
 - **FR-5.4**: Include LFS objects in exports
 - **FR-5.5**: Support two archive modes:
   - **Full Clone**: Complete repository with all history and LFS objects
   - **Incremental/Delta**: Only new commits, branches, tags since last archive
-- **FR-5.6**: Provide import/restore functionality from archives to GitLab or GitHub
+- **FR-5.6**: Provide import/restore functionality from archives to any Git platform
 - **FR-5.7**: Generate manifest file with repository metadata for each export:
   - Repository name, source URL, archive type (full/incremental)
   - Timestamp, size, branches, tags, commit range
+  - Storage backend type and location (path/bucket/container)
   - LFS object count and size
   - Parent archive reference (for incremental archives)
 - **FR-5.8**: Support archive chain reconstruction (base + incremental deltas)
-- **FR-5.9**: Verify archive integrity with checksums
-- **FR-5.10**: List and query available archives in S3 storage
+- **FR-5.9**: Verify archive integrity with checksums (SHA256)
+- **FR-5.10**: List and query available archives across all storage backends
+- **FR-5.11**: Support archive retention policies (delete old archives after N days/versions)
 
 ### FR-6: Execution Modes
 - **FR-6.1**: GitHub Actions workflow for automated nightly execution
@@ -162,7 +187,12 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
 #### Python Pros:
 - **GitPython library**: Mature, well-documented Git operations
 - **PyGithub & python-gitlab**: Excellent API client libraries
-- **Rich ecosystem**: boto3 (AWS), click/argparse (CLI), PyYAML (config)
+- **Rich cloud storage ecosystem**:
+  - boto3 (AWS S3) - industry standard
+  - azure-storage-blob (Azure Blob Storage)
+  - google-cloud-storage (GCS)
+  - oci (Oracle Cloud Infrastructure)
+- **CLI & config libraries**: click/argparse (CLI), PyYAML (config)
 - **Enterprise adoption**: Common in DevOps/automation
 - **Better subprocess handling**: Easier to shell out to git CLI when needed
 - **Data processing**: Superior for parsing/transforming data structures
@@ -188,10 +218,14 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
 **Rationale:**
 1. **Git operations maturity**: GitPython + git CLI integration is more robust
 2. **API client libraries**: PyGithub and python-gitlab are feature-complete and well-maintained
-3. **DevOps ecosystem fit**: Python is the standard for infrastructure automation
-4. **Better error handling**: For complex git operations and file system work
-5. **LFS support**: Easier integration with git-lfs CLI tools
-6. **AWS/S3 integration**: boto3 is industry standard
+3. **Multi-cloud storage support**: Native Python SDKs for all major cloud providers:
+   - boto3 (AWS) - most mature cloud SDK
+   - azure-storage-blob (Azure) - official Microsoft SDK
+   - google-cloud-storage (GCS) - official Google SDK
+   - oci (Oracle) - official Oracle SDK
+4. **DevOps ecosystem fit**: Python is the standard for infrastructure automation
+5. **Better error handling**: For complex git operations and file system work
+6. **LFS support**: Easier integration with git-lfs CLI tools
 
 ## Technical Architecture (High-Level)
 
@@ -221,7 +255,7 @@ graph TB
         GL2["GitLab<br/>(Self-hosted)"]
         GH1["GitHub<br/>(github.com)"]
         GH2["GitHub<br/>(Enterprise)"]
-        S3Read["S3 Storage<br/>(Read Archives)"]
+        StorageRead["Storage<br/>(Read Archives)"]
     end
 
     subgraph Targets["Target Systems"]
@@ -229,7 +263,16 @@ graph TB
         GLT2["GitLab<br/>(Self-hosted)"]
         GHT1["GitHub<br/>(github.com)"]
         GHT2["GitHub<br/>(Enterprise)"]
-        S3Write["S3 Storage<br/>(Write Archives)"]
+        StorageWrite["Storage<br/>(Write Archives)"]
+    end
+
+    subgraph Storage["Storage Backends"]
+        FS["Local Filesystem"]
+        S3["AWS S3<br/>(all regions)"]
+        Azure["Azure Blob<br/>(all regions)"]
+        GCS["Google Cloud<br/>(all regions)"]
+        OCI["Oracle OCI<br/>(all regions)"]
+        S3Compat["S3-Compatible<br/>(MinIO, etc.)"]
     end
 
     GHA --> Config
@@ -252,33 +295,62 @@ graph TB
     RepoMgr -.->|Clone/Sync| GL2
     RepoMgr -.->|Clone/Sync| GH1
     RepoMgr -.->|Clone/Sync| GH2
-    StorageMgr -.->|Download| S3Read
+    StorageMgr -.->|Download| StorageRead
 
     %% Target connections
     RepoMgr -.->|Push/Sync| GLT1
     RepoMgr -.->|Push/Sync| GLT2
     RepoMgr -.->|Push/Sync| GHT1
     RepoMgr -.->|Push/Sync| GHT2
-    StorageMgr -.->|Upload| S3Write
+    StorageMgr -.->|Upload| StorageWrite
+
+    %% Storage backend connections
+    StorageRead -.->|Read| FS
+    StorageRead -.->|Read| S3
+    StorageRead -.->|Read| Azure
+    StorageRead -.->|Read| GCS
+    StorageRead -.->|Read| OCI
+    StorageRead -.->|Read| S3Compat
+
+    StorageWrite -.->|Write| FS
+    StorageWrite -.->|Write| S3
+    StorageWrite -.->|Write| Azure
+    StorageWrite -.->|Write| GCS
+    StorageWrite -.->|Write| OCI
+    StorageWrite -.->|Write| S3Compat
 
     style Core fill:#e1f5ff
     style Execution fill:#fff4e1
     style Sources fill:#f0f0f0
     style Targets fill:#f0f0f0
+    style Storage fill:#fff0f0
 ```
 
 ### Supported Data Flow Paths
 
 The architecture supports all the following synchronization paths:
 
+**Platform-to-Platform Sync:**
 1. **GitLab → GitHub**: `GL1/GL2 → RepoMgr → OrgMapper → GHT1/GHT2`
 2. **GitHub → GitLab**: `GH1/GH2 → RepoMgr → OrgMapper → GLT1/GLT2`
 3. **GitLab → GitLab**: `GL1/GL2 → RepoMgr → OrgMapper → GLT1/GLT2`
 4. **GitHub → GitHub**: `GH1/GH2 → RepoMgr → OrgMapper → GHT1/GHT2`
-5. **GitLab → S3**: `GL1/GL2 → RepoMgr → ArchiveMgr → StorageMgr → S3Write`
-6. **GitHub → S3**: `GH1/GH2 → RepoMgr → ArchiveMgr → StorageMgr → S3Write`
-7. **S3 → GitLab**: `S3Read → StorageMgr → ArchiveMgr → RepoMgr → GLT1/GLT2`
-8. **S3 → GitHub**: `S3Read → StorageMgr → ArchiveMgr → RepoMgr → GHT1/GHT2`
+
+**Platform-to-Storage Archive:**
+5. **GitLab → Storage**: `GL1/GL2 → RepoMgr → ArchiveMgr → StorageMgr → Storage (FS/S3/Azure/GCS/OCI)`
+6. **GitHub → Storage**: `GH1/GH2 → RepoMgr → ArchiveMgr → StorageMgr → Storage (FS/S3/Azure/GCS/OCI)`
+
+**Storage-to-Platform Restore:**
+7. **Storage → GitLab**: `Storage → StorageMgr → ArchiveMgr → RepoMgr → GLT1/GLT2`
+8. **Storage → GitHub**: `Storage → StorageMgr → ArchiveMgr → RepoMgr → GHT1/GHT2`
+
+**Storage Backends (pluggable):**
+- Local Filesystem (NFS, SMB mounts)
+- AWS S3 (all regions: us-east-1, eu-west-1, ap-southeast-1, etc.)
+- Azure Blob Storage (all regions: eastus, westeurope, southeastasia, etc.)
+- Google Cloud Storage (all regions/multi-regions: us-central1, EU, ASIA, etc.)
+- Oracle OCI Object Storage (all regions: us-ashburn-1, eu-frankfurt-1, etc.)
+- S3-Compatible (MinIO, Ceph, DigitalOcean Spaces, Wasabi, etc.)
 
 ### Archive Strategy
 
