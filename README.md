@@ -1,5 +1,11 @@
 # Universal Repository Cloner & Synchronization Tool
 
+[![CI](https://github.com/montge/repo-cloner/actions/workflows/ci.yml/badge.svg)](https://github.com/montge/repo-cloner/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![License: TBD](https://img.shields.io/badge/license-TBD-lightgrey.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 A powerful, flexible tool for cloning, synchronizing, and archiving Git repositories across multiple platforms and storage backends. Perfect for migrations, air-gap deployments, and maintaining mirror repositories.
 
 ## Features
@@ -150,8 +156,15 @@ Nexus, Artifactory, JFrog, Azure Artifacts, Verdaccio, Athens, Satis
 
 ## Development Status
 
-🚧 **Sprint 0 Complete** - Project setup and foundation
-📋 **Sprint 1-9** - See [ROADMAP.md](ROADMAP.md) for detailed plan
+✅ **Sprint 0 Complete** - Project setup and foundation
+✅ **Sprint 1 Complete** - Core Git operations (clone, push, auth, CLI)
+🚧 **Sprint 2-9 In Progress** - See [ROADMAP.md](ROADMAP.md) for detailed plan
+
+**Current Features (Sprint 1):**
+- GitLab → GitHub single repository sync
+- Token-based authentication (env vars)
+- Dry-run mode for safe testing
+- CLI with `repo-cloner sync` command
 
 ## Contributing
 

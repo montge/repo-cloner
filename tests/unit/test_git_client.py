@@ -1,8 +1,11 @@
 """Unit tests for GitClient class."""
-import pytest
+
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from repo_cloner.git_client import GitClient, CloneResult, PushResult
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+
+from repo_cloner.git_client import CloneResult, GitClient, PushResult
 
 
 @pytest.mark.unit
@@ -17,7 +20,7 @@ class TestGitClient:
         local_path = tmp_path / "test-repo"
 
         # Mock GitPython
-        with patch('repo_cloner.git_client.git.Repo.clone_from') as mock_clone:
+        with patch("repo_cloner.git_client.git.Repo.clone_from") as mock_clone:
             mock_repo = MagicMock()
             mock_repo.branches = [Mock(), Mock(), Mock()]  # 3 branches
             mock_clone.return_value = mock_repo
@@ -29,9 +32,7 @@ class TestGitClient:
             assert result.success is True
             assert result.local_path == str(local_path)
             assert result.branches_count == 3
-            mock_clone.assert_called_once_with(
-                source_url, str(local_path), mirror=True
-            )
+            mock_clone.assert_called_once_with(source_url, str(local_path), mirror=True)
 
     def test_clone_mirror_preserves_all_branches(self, tmp_path):
         """Test that clone_mirror uses mirror flag to preserve all refs."""
@@ -41,7 +42,7 @@ class TestGitClient:
         local_path = tmp_path / "test-repo"
 
         # Mock
-        with patch('repo_cloner.git_client.git.Repo.clone_from') as mock_clone:
+        with patch("repo_cloner.git_client.git.Repo.clone_from") as mock_clone:
             mock_repo = MagicMock()
             mock_repo.branches = [Mock(name=f"branch{i}") for i in range(5)]
             mock_clone.return_value = mock_repo
@@ -51,7 +52,7 @@ class TestGitClient:
 
             # Assert - verify mirror=True was used
             _, kwargs = mock_clone.call_args
-            assert kwargs.get('mirror') is True
+            assert kwargs.get("mirror") is True
             assert result.branches_count == 5
 
     def test_clone_mirror_handles_error(self, tmp_path):
@@ -62,7 +63,7 @@ class TestGitClient:
         local_path = tmp_path / "test-repo"
 
         # Mock GitPython to raise error
-        with patch('repo_cloner.git_client.git.Repo.clone_from') as mock_clone:
+        with patch("repo_cloner.git_client.git.Repo.clone_from") as mock_clone:
             mock_clone.side_effect = Exception("Repository not found")
 
             # Act
@@ -81,7 +82,7 @@ class TestGitClient:
         local_path = tmp_path / "test-repo"
 
         # Mock
-        with patch('repo_cloner.git_client.git.Repo.clone_from') as mock_clone:
+        with patch("repo_cloner.git_client.git.Repo.clone_from") as mock_clone:
             # Act
             result = client.clone_mirror(source_url, str(local_path), dry_run=True)
 
@@ -99,7 +100,7 @@ class TestGitClient:
         target_url = "https://github.com/test/target.git"
 
         # Mock GitPython
-        with patch('repo_cloner.git_client.git.Repo') as mock_repo_class:
+        with patch("repo_cloner.git_client.git.Repo") as mock_repo_class:
             mock_repo = MagicMock()
             mock_remote = MagicMock()
             mock_repo.create_remote.return_value = mock_remote
@@ -111,7 +112,7 @@ class TestGitClient:
             # Assert
             assert result.success is True
             assert result.target_url == target_url
-            mock_repo.create_remote.assert_called_once_with('target', target_url)
+            mock_repo.create_remote.assert_called_once_with("target", target_url)
             mock_remote.push.assert_called_once_with(mirror=True)
 
     def test_push_mirror_handles_push_error(self, tmp_path):
@@ -122,7 +123,7 @@ class TestGitClient:
         target_url = "https://github.com/test/target.git"
 
         # Mock GitPython to raise error
-        with patch('repo_cloner.git_client.git.Repo') as mock_repo_class:
+        with patch("repo_cloner.git_client.git.Repo") as mock_repo_class:
             mock_repo_class.side_effect = Exception("Failed to push: authentication required")
 
             # Act
@@ -140,7 +141,7 @@ class TestGitClient:
         target_url = "https://github.com/test/target.git"
 
         # Mock
-        with patch('repo_cloner.git_client.git.Repo') as mock_repo_class:
+        with patch("repo_cloner.git_client.git.Repo") as mock_repo_class:
             # Act
             result = client.push_mirror(str(local_path), target_url, dry_run=True)
 
@@ -158,7 +159,7 @@ class TestGitClient:
         target_url = "https://github.com/test/target.git"
 
         # Mock GitPython
-        with patch('repo_cloner.git_client.git.Repo') as mock_repo_class:
+        with patch("repo_cloner.git_client.git.Repo") as mock_repo_class:
             mock_repo = MagicMock()
             mock_remote = MagicMock()
             mock_repo.create_remote.return_value = mock_remote
@@ -169,4 +170,4 @@ class TestGitClient:
 
             # Assert - remote should be removed after push
             assert result.success is True
-            mock_repo.delete_remote.assert_called_once_with('target')
+            mock_repo.delete_remote.assert_called_once_with("target")

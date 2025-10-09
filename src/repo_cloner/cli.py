@@ -1,9 +1,12 @@
 """Command-line interface for repo-cloner."""
-import click
+
 import sys
 from pathlib import Path
-from .git_client import GitClient
+
+import click
+
 from .auth_manager import AuthManager
+from .git_client import GitClient
 
 
 @click.group()
@@ -18,41 +21,26 @@ def main():
 
 @main.command()
 @click.option(
-    "--source",
-    required=True,
-    help="Source repository URL (https://gitlab.com/group/repo.git)"
+    "--source", required=True, help="Source repository URL (https://gitlab.com/group/repo.git)"
 )
 @click.option(
-    "--target",
-    required=True,
-    help="Target repository URL (https://github.com/org/repo.git)"
+    "--target", required=True, help="Target repository URL (https://github.com/org/repo.git)"
 )
 @click.option(
-    "--local-path",
-    default=None,
-    help="Local path for temporary clone (default: temp directory)"
+    "--local-path", default=None, help="Local path for temporary clone (default: temp directory)"
 )
 @click.option(
     "--github-token",
     envvar="GITHUB_TOKEN",
-    help="GitHub personal access token (or set GITHUB_TOKEN env var)"
+    help="GitHub personal access token (or set GITHUB_TOKEN env var)",
 )
 @click.option(
     "--gitlab-token",
     envvar="GITLAB_TOKEN",
-    help="GitLab personal access token (or set GITLAB_TOKEN env var)"
+    help="GitLab personal access token (or set GITLAB_TOKEN env var)",
 )
-@click.option(
-    "--dry-run",
-    is_flag=True,
-    help="Show what would be done without executing"
-)
-@click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    help="Enable verbose output"
-)
+@click.option("--dry-run", is_flag=True, help="Show what would be done without executing")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 def sync(source, target, local_path, github_token, gitlab_token, dry_run, verbose):
     """Clone from source and push to target (GitLab → GitHub migration)."""
 
@@ -84,9 +72,7 @@ def sync(source, target, local_path, github_token, gitlab_token, dry_run, verbos
 
     # Step 1: Clone from source
     click.echo("📥 Cloning from source...")
-    clone_result = git_client.clone_mirror(
-        authenticated_source, local_path, dry_run=dry_run
-    )
+    clone_result = git_client.clone_mirror(authenticated_source, local_path, dry_run=dry_run)
 
     if not clone_result.success:
         click.echo(f"❌ Clone failed: {clone_result.error_message}", err=True)
@@ -99,9 +85,7 @@ def sync(source, target, local_path, github_token, gitlab_token, dry_run, verbos
 
     # Step 2: Push to target
     click.echo("📤 Pushing to target...")
-    push_result = git_client.push_mirror(
-        local_path, authenticated_target, dry_run=dry_run
-    )
+    push_result = git_client.push_mirror(local_path, authenticated_target, dry_run=dry_run)
 
     if not push_result.success:
         click.echo(f"❌ Push failed: {push_result.error_message}", err=True)

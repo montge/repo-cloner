@@ -1,10 +1,13 @@
 """Integration tests for full clone and push workflow."""
-import pytest
-import tempfile
+
 import shutil
+import tempfile
 from pathlib import Path
-from repo_cloner.git_client import GitClient
+
+import pytest
+
 from repo_cloner.auth_manager import AuthManager
+from repo_cloner.git_client import GitClient
 
 
 @pytest.mark.integration
@@ -15,10 +18,7 @@ class TestCloneAndPushWorkflow:
         """Test that dry-run mode works end-to-end without executing."""
         # Arrange
         git_client = GitClient()
-        auth_manager = AuthManager(
-            github_token="ghp_test_token",
-            gitlab_token="glpat_test_token"
-        )
+        auth_manager = AuthManager(github_token="ghp_test_token", gitlab_token="glpat_test_token")
 
         source_url = "https://gitlab.com/test/source.git"
         target_url = "https://github.com/test/target.git"
@@ -48,10 +48,7 @@ class TestCloneAndPushWorkflow:
     def test_authentication_flow_with_both_platforms(self):
         """Test credential injection for both GitHub and GitLab."""
         # Arrange
-        auth_manager = AuthManager(
-            github_token="ghp_real_token",
-            gitlab_token="glpat_real_token"
-        )
+        auth_manager = AuthManager(github_token="ghp_real_token", gitlab_token="glpat_real_token")
 
         github_url = "https://github.com/org/repo.git"
         gitlab_url = "https://gitlab.com/group/repo.git"
@@ -98,9 +95,7 @@ class TestCloneAndPushWorkflow:
         try:
             # Act - Dry-run to test path logic without actual clone
             result = git_client.clone_mirror(
-                "https://github.com/test/repo.git",
-                nested_path,
-                dry_run=True
+                "https://github.com/test/repo.git", nested_path, dry_run=True
             )
 
             # Assert

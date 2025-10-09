@@ -1,7 +1,10 @@
 """Unit tests for AuthManager class."""
-import pytest
+
 import os
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
+
+import pytest
+
 from repo_cloner.auth_manager import AuthManager
 
 
@@ -31,7 +34,9 @@ class TestAuthManager:
         authenticated_url = auth.inject_credentials(url, platform="gitlab")
 
         # Assert
-        assert authenticated_url == "https://oauth2:glpat-test_token_456@gitlab.com/mygroup/myrepo.git"
+        assert (
+            authenticated_url == "https://oauth2:glpat-test_token_456@gitlab.com/mygroup/myrepo.git"
+        )
 
     def test_inject_credentials_preserves_ssh_urls(self):
         """Test that SSH URLs are not modified."""
@@ -48,10 +53,9 @@ class TestAuthManager:
     def test_load_tokens_from_environment(self):
         """Test that tokens are loaded from environment variables."""
         # Arrange
-        with patch.dict(os.environ, {
-            "GITHUB_TOKEN": "ghp_env_token",
-            "GITLAB_TOKEN": "glpat_env_token"
-        }):
+        with patch.dict(
+            os.environ, {"GITHUB_TOKEN": "ghp_env_token", "GITLAB_TOKEN": "glpat_env_token"}
+        ):
             # Act
             auth = AuthManager.from_environment()
 
@@ -78,7 +82,9 @@ class TestAuthManager:
         authenticated_url = auth.inject_credentials(custom_url, platform="gitlab")
 
         # Assert
-        assert authenticated_url == "https://oauth2:glpat_custom@gitlab.example.com/mygroup/myrepo.git"
+        assert (
+            authenticated_url == "https://oauth2:glpat_custom@gitlab.example.com/mygroup/myrepo.git"
+        )
 
     def test_auto_detects_platform_from_url(self):
         """Test that platform is auto-detected from URL."""

@@ -1,4 +1,5 @@
 """Authentication manager for Git credentials injection."""
+
 import os
 from typing import Optional
 from urllib.parse import urlparse, urlunparse
@@ -7,9 +8,7 @@ from urllib.parse import urlparse, urlunparse
 class AuthManager:
     """Manages authentication credentials for Git operations."""
 
-    def __init__(
-        self, github_token: Optional[str] = None, gitlab_token: Optional[str] = None
-    ):
+    def __init__(self, github_token: Optional[str] = None, gitlab_token: Optional[str] = None):
         """
         Initialize AuthManager with API tokens.
 
@@ -33,9 +32,7 @@ class AuthManager:
             gitlab_token=os.environ.get("GITLAB_TOKEN"),
         )
 
-    def inject_credentials(
-        self, url: str, platform: Optional[str] = None
-    ) -> str:
+    def inject_credentials(self, url: str, platform: Optional[str] = None) -> str:
         """
         Inject authentication credentials into a Git URL.
 

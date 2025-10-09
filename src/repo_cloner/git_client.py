@@ -1,7 +1,9 @@
 """Git client for repository cloning and synchronization operations."""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
+
 import git
 
 
@@ -31,9 +33,7 @@ class PushResult:
 class GitClient:
     """Client for Git operations using GitPython."""
 
-    def clone_mirror(
-        self, source_url: str, local_path: str, dry_run: bool = False
-    ) -> CloneResult:
+    def clone_mirror(self, source_url: str, local_path: str, dry_run: bool = False) -> CloneResult:
         """
         Clone a Git repository as a mirror (all refs, branches, tags).
 
@@ -64,9 +64,7 @@ class GitClient:
             # Count branches
             branches = list(repo.branches)
 
-            return CloneResult(
-                success=True, local_path=local_path, branches_count=len(branches)
-            )
+            return CloneResult(success=True, local_path=local_path, branches_count=len(branches))
         except Exception as e:
             return CloneResult(
                 success=False,
@@ -75,9 +73,7 @@ class GitClient:
                 error_message=str(e),
             )
 
-    def push_mirror(
-        self, local_path: str, target_url: str, dry_run: bool = False
-    ) -> PushResult:
+    def push_mirror(self, local_path: str, target_url: str, dry_run: bool = False) -> PushResult:
         """
         Push a Git repository as a mirror (all refs, branches, tags) to target.
 
@@ -112,6 +108,4 @@ class GitClient:
 
             return PushResult(success=True, target_url=target_url)
         except Exception as e:
-            return PushResult(
-                success=False, target_url=target_url, error_message=str(e)
-            )
+            return PushResult(success=False, target_url=target_url, error_message=str(e))
