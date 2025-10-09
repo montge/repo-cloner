@@ -72,24 +72,66 @@ repo-cloner/
 
 ## Commands (Once Implemented)
 
-### Development
+### Development Environment Setup
 ```bash
-# Install dependencies
-poetry install
+# Create and activate virtual environment (.venv)
+python3.11 -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\activate   # Windows
 
-# Run tests
+# Install dependencies
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Install pre-commit hooks
+pre-commit install
+```
+
+### Testing (with Docker)
+```bash
+# Start test infrastructure (LocalStack, Azurite, MinIO, GitLab, Gitea)
+docker-compose -f docker-compose.test.yml up -d
+
+# Wait for services to be ready
+sleep 10
+
+# Run all tests
 pytest tests/ -v --cov=src/repo_cloner --cov-report=html
+
+# Run only unit tests (fast, no Docker needed)
+pytest tests/unit/ -v
+
+# Run integration tests (requires Docker)
+pytest tests/integration/ -v
 
 # Run specific test
 pytest tests/unit/test_git_client.py::test_clone_mirror -v
 
-# Code quality
+# Stop test infrastructure
+docker-compose -f docker-compose.test.yml down
+```
+
+### Code Quality
+```bash
+# Auto-format code
 black src/ tests/
+isort src/ tests/
+
+# Lint
 flake8 src/ tests/
+
+# Type checking
 mypy src/
 
-# Run pre-commit hooks
+# Run all pre-commit hooks
 pre-commit run --all-files
+```
+
+### Optional: k3s for Advanced Testing
+```bash
+# For complex integration scenarios (optional)
+# See docs/k3s-testing.md for k3s setup
+k3s kubectl apply -f tests/k3s/
 ```
 
 ### CLI Usage

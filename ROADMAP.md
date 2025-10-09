@@ -18,31 +18,97 @@ This roadmap follows an iterative, sprint-based approach using Test-Driven Devel
 
 ### Deliverables
 - [ ] Python project structure (src/, tests/, docs/)
-- [ ] Poetry/pip requirements setup
+- [ ] **`.venv` virtual environment** setup (standardized Python environment)
+- [ ] `requirements.txt` and `requirements-dev.txt` for dependencies
 - [ ] Pre-commit hooks (black, flake8, mypy)
 - [ ] pytest configuration with coverage
+- [ ] **Docker Compose** for local test infrastructure (`docker-compose.test.yml`)
 - [ ] GitHub Actions CI workflow (run tests on PR)
 - [ ] README with setup instructions
 - [ ] CONTRIBUTING.md with TDD guidelines
-- [ ] .gitignore configured
+- [ ] .gitignore configured (include `.venv/`, `__pycache__/`, etc.)
 - [ ] Development branch strategy documented
+- [ ] **Makefile** or task runner for common development commands
 
 ### Test Strategy
-- Unit tests for utility functions
-- Integration test framework scaffold
+- **Unit tests** with mocked dependencies (fast, no Docker required)
+- **Integration test framework** using Docker Compose for emulators
+  - LocalStack (S3), Azurite (Azure), fake-gcs-server (GCS), MinIO
+  - GitLab CE Docker, Gitea (lightweight Git server)
+- **Optional**: k3s setup documentation for advanced testing scenarios
 
 ### Dependencies
-- Python 3.9+
-- pytest, pytest-cov
-- black, flake8, mypy
+
+**Python Runtime:**
+- Python 3.11+ (use `.venv` virtual environment)
+
+**Core Libraries:**
 - GitPython
 - PyGithub, python-gitlab
+- boto3, azure-storage-blob, google-cloud-storage, oci
+- PyYAML, Pydantic
+- click (CLI framework)
+
+**Testing Libraries:**
+- pytest, pytest-cov, pytest-mock
+- moto[s3] (AWS S3 mocking)
+- responses, requests-mock (HTTP mocking)
+- faker, freezegun
+- docker, testcontainers (for Docker-based integration tests)
+
+**Code Quality:**
+- black, flake8, mypy, isort
+- pre-commit
+
+**Test Infrastructure (Docker):**
+- LocalStack (AWS S3 emulator)
+- Azurite (Azure Blob emulator)
+- fake-gcs-server (GCS emulator)
+- MinIO (S3-compatible storage)
+- GitLab CE (full GitLab instance)
+- Gitea (lightweight Git server)
+
+### Environment Setup Commands
+
+```bash
+# Create virtual environment
+python3.11 -m venv .venv
+
+# Activate virtual environment
+source .venv/bin/activate  # Linux/macOS
+.venv\Scripts\activate     # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Install pre-commit hooks
+pre-commit install
+
+# Start test infrastructure (Docker Compose)
+docker-compose -f docker-compose.test.yml up -d
+
+# Run tests
+pytest tests/ -v --cov=src/repo_cloner
+
+# Code formatting
+black src/ tests/
+isort src/ tests/
+flake8 src/ tests/
+mypy src/
+
+# Stop test infrastructure
+docker-compose -f docker-compose.test.yml down
+```
 
 ### Definition of Done
-- ✅ Project builds successfully
-- ✅ CI pipeline runs tests
-- ✅ Code quality checks pass
-- ✅ Documentation complete
+- ✅ `.venv` virtual environment configured and documented
+- ✅ Project builds successfully with `pip install -r requirements.txt`
+- ✅ Docker Compose test infrastructure starts and stops cleanly
+- ✅ CI pipeline runs tests (unit + integration with Docker)
+- ✅ Code quality checks pass (black, flake8, mypy)
+- ✅ Documentation complete with setup instructions
+- ✅ All developers can run tests locally with Docker
 
 ---
 
