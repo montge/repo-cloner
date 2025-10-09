@@ -173,6 +173,42 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
 - **FR-11.3**: Document workflow for adding local features while maintaining upstream sync
 - **FR-11.4**: Optional: Track local-only branches (exclude from sync)
 
+### FR-12: Dependency Management & Fetching
+- **FR-12.1**: Auto-detect programming languages and dependency manifests in repositories
+  - Python: requirements.txt, Pipfile, pyproject.toml, setup.py
+  - Node.js: package.json, package-lock.json, yarn.lock, pnpm-lock.yaml
+  - Java/JVM: pom.xml (Maven), build.gradle (Gradle), build.sbt (SBT)
+  - Ruby: Gemfile, Gemfile.lock
+  - Rust: Cargo.toml, Cargo.lock
+  - Go: go.mod, go.sum
+  - C/C++: conanfile.txt/py (Conan), vcpkg.json
+  - Ada: alire.toml
+  - Fortran: fpm.toml
+  - Others: .NET/NuGet, PHP/Composer, Swift/CocoaPods
+- **FR-12.2**: Fetch dependencies from package registries:
+  - Public registries (PyPI, npm, Maven Central, crates.io, etc.)
+  - Private registries (Nexus, Artifactory, JFrog, Verdaccio, Athens)
+- **FR-12.3**: Authenticate to private package registries:
+  - Credential sources: environment variables, config files (.npmrc, .pypirc, settings.xml)
+  - Token-based and username/password authentication
+  - Support for multiple registries per language
+- **FR-12.4**: Archive dependencies alongside repository archives:
+  - Unified archive format (repo + dependencies)
+  - Per-language subdirectories (python/, nodejs/, java/, etc.)
+  - Dependency manifests with checksums and versions
+  - Preserve lock files for deterministic builds
+- **FR-12.5**: Generate offline installation structures:
+  - Python: pip install --no-index --find-links compatible
+  - Node.js: offline node_modules or tarball cache
+  - Java: local Maven repository structure
+  - Ruby: bundle install --local compatible
+  - Rust: local crate mirror
+  - Go: GOPROXY-compatible directory
+- **FR-12.6**: Restore dependencies in air-gap environments:
+  - Restore scripts for each language (setup-python.sh, etc.)
+  - Verify checksums during restoration
+  - Support for multiple languages in monorepos
+
 ## Non-Functional Requirements
 
 ### NFR-1: Performance

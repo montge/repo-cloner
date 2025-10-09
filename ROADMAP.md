@@ -123,17 +123,24 @@ docker-compose -f docker-compose.test.yml down
 - **US-1.1**: As a developer, I can clone a GitLab repository using a PAT
 - **US-1.2**: As a developer, I can create a mirror clone preserving all refs
 - **US-1.3**: As a developer, I can push mirrored content to GitHub
+- **US-1.4**: As a developer, I can run in dry-run mode to preview operations without making changes
 
 ### Deliverables
 - [ ] `GitClient` class for Git operations
-  - `clone_mirror(source_url, local_path)`
-  - `push_mirror(local_path, target_url)`
+  - `clone_mirror(source_url, local_path, dry_run=False)`
+  - `push_mirror(local_path, target_url, dry_run=False)`
 - [ ] `AuthManager` class for credential handling
   - Support for GitLab PAT
   - Support for GitHub PAT
   - Environment variable injection
 - [ ] Configuration model (Python dataclass/Pydantic)
 - [ ] CLI entry point with basic arguments
+  - `--dry-run` flag for preview mode (FR-6.3)
+  - Log what would be done without executing
+- [ ] Dry-run mode implementation
+  - Preview clone operations without cloning
+  - Preview push operations without pushing
+  - Log all planned actions with clear "DRY-RUN" prefix
 
 ### Test Strategy (TDD)
 **Write tests FIRST for each feature:**
@@ -150,8 +157,17 @@ docker-compose -f docker-compose.test.yml down
 4. **Test**: `test_auth_manager_injects_credentials()`
    - **Then**: Implement URL rewriting with credentials
 
-5. **Integration Test**: `test_full_clone_and_push_flow()`
+5. **Test**: `test_dry_run_mode_logs_without_cloning()`
+   - **Then**: Implement dry-run for clone operations
+
+6. **Test**: `test_dry_run_mode_logs_without_pushing()`
+   - **Then**: Implement dry-run for push operations
+
+7. **Integration Test**: `test_full_clone_and_push_flow()`
    - Use test repositories on GitLab/GitHub
+
+8. **Integration Test**: `test_dry_run_end_to_end()`
+   - Run full workflow in dry-run, verify no changes made
 
 ### Technical Decisions
 - Use GitPython for most operations, shell out to git CLI for mirror
@@ -177,16 +193,22 @@ docker-compose -f docker-compose.test.yml down
 - **US-2.1**: As a user, I can list all repositories in a GitLab group
 - **US-2.2**: As a user, I can automatically create GitHub repositories if they don't exist
 - **US-2.3**: As a user, I can map a GitLab group to a GitHub organization
+- **US-2.4**: As a user, repository metadata (description, topics/tags) is preserved during migration
 
 ### Deliverables
 - [ ] `GitLabClient` class
   - `list_projects(group_path)`
-  - `get_project_details(project_id)`
+  - `get_project_details(project_id)` - includes description, topics/tags
   - Support for gitlab.com and self-hosted
 - [ ] `GitHubClient` class
-  - `create_repository(org, name, description)`
+  - `create_repository(org, name, description, topics)` - FR-1.5 metadata support
+  - `update_repository_metadata(org, name, description, topics)` - update existing repos
   - `repository_exists(org, name)`
   - Support for github.com and GitHub Enterprise
+- [ ] `MetadataMapper` class (FR-1.5)
+  - Map GitLab tags → GitHub topics
+  - Preserve repository descriptions
+  - Handle visibility settings (public/private/internal)
 - [ ] `GroupMapper` class
   - Basic naming strategy (flatten with separator)
   - Configuration for custom mappings
@@ -199,23 +221,36 @@ docker-compose -f docker-compose.test.yml down
    - Mock API responses
    - **Then**: Implement `list_projects()`
 
-2. **Test**: `test_gitlab_client_handles_pagination()`
+2. **Test**: `test_gitlab_client_gets_project_metadata()`
+   - Mock API response with description, tags
+   - **Then**: Implement `get_project_details()` with metadata
+
+3. **Test**: `test_gitlab_client_handles_pagination()`
    - **Then**: Implement pagination logic
 
-3. **Test**: `test_github_client_creates_repo()`
+4. **Test**: `test_github_client_creates_repo_with_metadata()`
    - Mock API responses
-   - **Then**: Implement `create_repository()`
+   - **Then**: Implement `create_repository()` with description and topics
 
-4. **Test**: `test_github_client_checks_existence()`
+5. **Test**: `test_github_client_updates_repo_metadata()`
+   - **Then**: Implement `update_repository_metadata()`
+
+6. **Test**: `test_github_client_checks_existence()`
    - **Then**: Implement `repository_exists()`
 
-5. **Test**: `test_group_mapper_flattens_hierarchy()`
+7. **Test**: `test_metadata_mapper_converts_tags_to_topics()`
+   - GitLab tags: ["backend", "python", "microservice"]
+   - GitHub topics: ["backend", "python", "microservice"]
+   - **Then**: Implement metadata mapping
+
+8. **Test**: `test_group_mapper_flattens_hierarchy()`
    - Input: `group/subgroup/repo`
    - Expected: `group-subgroup-repo`
    - **Then**: Implement mapping logic
 
-6. **Integration Test**: `test_discover_and_create_repos()`
+9. **Integration Test**: `test_discover_and_create_repos_with_metadata()`
    - Use test GitLab group and GitHub org
+   - Verify description and topics preserved
 
 ### Technical Decisions
 - Use `python-gitlab` library for GitLab API
@@ -240,29 +275,41 @@ docker-compose -f docker-compose.test.yml down
 - Track sync state
 
 ### User Stories
-- **US-3.1**: As a user, I can sync updates from GitLab to GitHub
-- **US-3.2**: As a user, I can detect new branches and tags
-- **US-3.3**: As a system, I track when each repository was last synced
+- **US-3.1**: As a user, I can sync updates from GitLab to GitHub (unidirectional)
+- **US-3.2**: As a user, I can sync bidirectionally between any Git platforms
+- **US-3.3**: As a user, I can configure sync direction (source→target, target→source, bidirectional)
+- **US-3.4**: As a user, I can detect new branches and tags
+- **US-3.5**: As a system, I track when each repository was last synced
+- **US-3.6**: As a system, I detect conflicts during bidirectional sync and provide resolution strategies
 
 ### Deliverables
 - [ ] `SyncEngine` class
-  - `sync_repository(source, target, strategy)`
+  - `sync_repository(source, target, strategy, direction)` - supports unidirectional and bidirectional
   - `detect_changes(source, local_mirror)`
   - `handle_force_pushes()`
+  - `detect_conflicts(source, target)` - for bidirectional sync
+  - `resolve_conflicts(strategy)` - conflict resolution strategies
 - [ ] State persistence (JSON or SQLite)
-  - Store last sync timestamp per repo
-  - Store last commit SHA per branch
+  - Store last sync timestamp per repo per direction
+  - Store last commit SHA per branch per remote
+  - Track sync direction configuration
 - [ ] Sync strategies
   - Full mirror (overwrite everything)
   - Incremental (fetch only new refs)
-- [ ] Conflict detection and handling
+- [ ] Sync direction modes (FR-3.7)
+  - **Source → Target** (unidirectional forward)
+  - **Target → Source** (unidirectional reverse)
+  - **Bidirectional** (two-way sync with conflict detection)
+- [ ] Conflict detection and resolution (FR-3.5, FR-3.6)
+  - Detect divergent commits on same branch
+  - Resolution strategies: fail-fast, source-wins, target-wins, manual
+  - Log conflicts for manual review
 
 ### Test Strategy (TDD)
 **Write tests FIRST:**
 
 1. **Test**: `test_sync_detects_new_commits()`
-   - Set up repo with initial state
-   - Add commits
+   - Set up repo with initial state, add commits
    - **Then**: Implement change detection
 
 2. **Test**: `test_sync_handles_new_branches()`
@@ -271,14 +318,34 @@ docker-compose -f docker-compose.test.yml down
 3. **Test**: `test_sync_handles_deleted_branches()`
    - **Then**: Implement deletion propagation
 
-4. **Test**: `test_state_persists_last_sync_time()`
-   - **Then**: Implement state storage
+4. **Test**: `test_state_persists_last_sync_time_per_direction()`
+   - **Then**: Implement state storage with direction tracking
 
 5. **Test**: `test_sync_handles_force_push()`
    - **Then**: Implement force push detection and handling
 
-6. **Integration Test**: `test_full_sync_cycle()`
-   - Initial clone → make changes → sync → verify target
+6. **Test**: `test_bidirectional_sync_without_conflicts()`
+   - Changes on both sides, no overlaps
+   - **Then**: Implement bidirectional sync
+
+7. **Test**: `test_bidirectional_sync_detects_conflicts()`
+   - Divergent commits on same branch
+   - **Then**: Implement conflict detection
+
+8. **Test**: `test_conflict_resolution_source_wins()`
+   - **Then**: Implement source-wins strategy
+
+9. **Test**: `test_conflict_resolution_fail_fast()`
+   - **Then**: Implement fail-fast on conflict
+
+10. **Test**: `test_sync_direction_source_to_target()`
+    - **Then**: Implement unidirectional forward
+
+11. **Test**: `test_sync_direction_target_to_source()`
+    - **Then**: Implement unidirectional reverse
+
+12. **Integration Test**: `test_full_bidirectional_sync_cycle()`
+    - Make changes on both platforms → sync bidirectionally → verify both sides
 
 ### Technical Decisions
 - Use `git fetch --all --tags --prune` for sync
@@ -447,76 +514,135 @@ docker-compose -f docker-compose.test.yml down
 - Support import from archives
 
 ### User Stories
-- **US-6.1**: As a user, I can export synced repositories to tar.gz archives
-- **US-6.2**: As a user, I can upload archives to S3-compatible storage
+- **US-6.1**: As a user, I can export synced repositories to tar.gz archives (full and incremental)
+- **US-6.2**: As a user, I can upload archives to multiple storage backends (local filesystem, AWS S3, Azure Blob, GCS, Oracle OCI, S3-compatible)
 - **US-6.3**: As a user, I can import repositories from archives
-- **US-6.4**: As a user, I receive a manifest file describing archived content
+- **US-6.4**: As a user, I receive a manifest file describing archived content with version tracking and checksums
+- **US-6.5**: As a user, I can select specific regions for cloud storage backends
+- **US-6.6**: As a user, I can list and query archives across all storage backends
+- **US-6.7**: As a user, I can reconstruct full repository from incremental archive chains
 
 ### Deliverables
 - [ ] `ArchiveManager` class
-  - `create_archive(repo_path, output_path, include_lfs)`
+  - `create_full_archive(repo_path, output_path, include_lfs)` - complete repo with all history
+  - `create_incremental_archive(repo_path, output_path, parent_archive)` - delta since parent
   - `extract_archive(archive_path, output_path)`
-- [ ] `StorageClient` class
-  - S3 backend (using boto3)
-  - Pluggable interface for other backends
-  - `upload_archive(archive_path, bucket, key)`
-  - `download_archive(bucket, key, output_path)`
-- [ ] Manifest generation
-  ```json
-  {
-    "export_date": "2025-10-09T12:00:00Z",
-    "repositories": [
-      {
-        "name": "backend-auth-service",
-        "source_url": "https://gitlab.example.com/backend/auth-service",
-        "size_bytes": 104857600,
-        "lfs_included": true,
-        "branches": ["main", "develop"],
-        "tags": ["v1.0.0", "v1.1.0"]
-      }
-    ]
-  }
-  ```
-- [ ] CLI commands: `export`, `import`, `upload`, `download`
+  - `reconstruct_from_chain(base_archive, incremental_archives[])` - apply incremental deltas
+- [ ] `StorageManager` class with pluggable backends
+  - **Local Filesystem Backend**: Direct file system paths (NFS, SMB mounts)
+  - **AWS S3 Backend** (boto3): All regions with region selection
+  - **Azure Blob Backend** (azure-storage-blob): All regions
+  - **GCS Backend** (google-cloud-storage): All regions/multi-regions
+  - **Oracle OCI Backend** (oci): All regions with namespace
+  - **S3-Compatible Backend**: MinIO, Ceph, DigitalOcean, etc.
+  - Methods: `upload_archive()`, `download_archive()`, `list_archives()`, `query_archives()`
+- [ ] Version tracking and integrity verification (FR-10)
+  - Track Git commit SHAs for all branches and tags in manifest
+  - Generate SHA256 checksums for all artifacts (bundles, archives, LFS objects)
+  - Preserve lock files with checksums
+  - Implement verification workflows
+- [ ] Enhanced manifest generation (see REQUIREMENTS.md for full example)
+  - Archive metadata (type: full/incremental, timestamp, size)
+  - Git metadata with commit SHAs for all branches/tags
+  - Archive file checksums (SHA256 for bundles and tar.gz)
+  - LFS object checksums (SHA256 OIDs)
+  - Storage backend info (type, region, location)
+  - Parent archive reference (for incremental archives)
+  - Verification status
+- [ ] Archive retention policies (FR-5.11)
+  - Delete old archives after N days/versions
+  - Configurable retention per repository or globally
+- [ ] CLI commands: `archive create`, `archive restore`, `archive upload`, `archive download`, `archive list`, `archive query`
 
 ### Test Strategy (TDD)
 **Write tests FIRST:**
 
-1. **Test**: `test_create_archive_from_repo()`
-   - **Then**: Implement tar.gz creation
+1. **Test**: `test_create_full_archive_from_repo()`
+   - **Then**: Implement full archive creation with git bundle
 
-2. **Test**: `test_archive_includes_lfs_objects()`
-   - **Then**: Implement LFS bundling
+2. **Test**: `test_create_incremental_archive_from_repo()`
+   - **Then**: Implement delta archive with parent reference
 
-3. **Test**: `test_extract_archive_restores_repo()`
+3. **Test**: `test_reconstruct_from_archive_chain()`
+   - Base + 3 incremental archives
+   - **Then**: Implement chain reconstruction
+
+4. **Test**: `test_archive_includes_lfs_objects_with_checksums()`
+   - **Then**: Implement LFS bundling with SHA256
+
+5. **Test**: `test_extract_archive_restores_repo()`
    - **Then**: Implement extraction
 
-4. **Test**: `test_s3_upload_succeeds()`
+6. **Test**: `test_s3_upload_with_region_selection()`
    - Use moto for S3 mocking
-   - **Then**: Implement S3 upload
+   - **Then**: Implement S3 backend with region support
 
-5. **Test**: `test_manifest_generation()`
-   - **Then**: Implement manifest creation
+7. **Test**: `test_azure_blob_upload_with_region()`
+   - Use Azurite for Azure emulation
+   - **Then**: Implement Azure Blob backend
 
-6. **Test**: `test_manifest_validation_on_import()`
-   - **Then**: Implement validation logic
+8. **Test**: `test_gcs_upload_with_location()`
+   - Use fake-gcs-server
+   - **Then**: Implement GCS backend
 
-7. **Integration Test**: `test_full_export_upload_download_import_cycle()`
-   - End-to-end flow
+9. **Test**: `test_oci_upload_with_namespace_region()`
+   - Mock OCI SDK
+   - **Then**: Implement Oracle OCI backend
+
+10. **Test**: `test_local_filesystem_backend()`
+    - **Then**: Implement local filesystem backend
+
+11. **Test**: `test_s3_compatible_minio()`
+    - Use MinIO container
+    - **Then**: Implement S3-compatible backend
+
+12. **Test**: `test_list_archives_across_all_backends()`
+    - **Then**: Implement unified archive listing
+
+13. **Test**: `test_manifest_includes_commit_shas_and_checksums()`
+    - **Then**: Implement comprehensive manifest
+
+14. **Test**: `test_verification_workflow_detects_corruption()`
+    - **Then**: Implement checksum verification
+
+15. **Test**: `test_archive_retention_policy()`
+    - **Then**: Implement retention cleanup
+
+16. **Integration Test**: `test_full_multi_cloud_archive_restore_cycle()`
+    - Archive → upload to S3, Azure, GCS → download → restore → verify
 
 ### Technical Decisions
-- Use `tarfile` module for archives
-- Use boto3 for S3 (support S3-compatible endpoints)
-- Compression: gzip by default, configurable
-- Archive naming: `{repo-name}-{timestamp}.tar.gz`
-- Manifest: JSON format, stored alongside archives
+- Use `tarfile` module for archives with gzip compression
+- **Cloud Storage SDKs**:
+  - boto3 for AWS S3
+  - azure-storage-blob for Azure Blob Storage
+  - google-cloud-storage for GCS
+  - oci for Oracle Cloud Infrastructure
+  - boto3 with custom endpoint for S3-compatible storage
+- Archive naming: `{repo-name}-{full|inc}-{timestamp}.tar.gz`
+- Manifest: JSON format (same structure as in REQUIREMENTS.md example)
+- Git bundles for complete ref/commit storage
+- Incremental archives use `git bundle create --since` for deltas
+- Checksum algorithm: SHA256 for all artifacts
+- Lock file preservation: Store alongside dependency manifests
 
 ### Definition of Done
-- ✅ Archives create successfully with all repo data
-- ✅ LFS objects included when specified
-- ✅ S3 upload/download works with real AWS/MinIO
-- ✅ Manifest accurately describes archive contents
-- ✅ Import restores repository to working state
+- ✅ Full and incremental archives create successfully
+- ✅ Archive chain reconstruction works (base + N incrementals)
+- ✅ LFS objects included with SHA256 checksums
+- ✅ All 6 storage backends implemented and tested:
+  - Local filesystem
+  - AWS S3 (with region selection)
+  - Azure Blob Storage (with region selection)
+  - GCS (with location selection)
+  - Oracle OCI (with namespace and region)
+  - S3-compatible (MinIO tested)
+- ✅ Archive listing/querying works across all backends
+- ✅ Manifest includes commit SHAs for all branches/tags
+- ✅ Manifest includes SHA256 checksums for all artifacts
+- ✅ Verification workflows detect corruption
+- ✅ Archive retention policies work
+- ✅ Import restores repository to working state with integrity verification
 
 ---
 
@@ -645,6 +771,12 @@ docker-compose -f docker-compose.test.yml down
   - ARCHITECTURE.md: System design
   - TROUBLESHOOTING.md: Common issues
   - API.md: Developer reference (if exposing as library)
+  - **FORK_WORKFLOW.md**: Local fork support (FR-11)
+    - How to fork cloned repositories locally
+    - Branch protection rule setup
+    - Adding local features while maintaining upstream sync
+    - Excluding local-only branches from sync
+    - Best practices for dual-use repositories (synced + local dev)
 
 ### Test Strategy (TDD)
 **Write tests FIRST:**
