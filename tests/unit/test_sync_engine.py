@@ -29,7 +29,10 @@ class TestSyncEngine:
 
             # Create SyncEngine and record initial state
             engine = SyncEngine()
-            initial_state = {"last_commit": initial_sha}
+            initial_state = {
+                "last_commit": initial_sha,
+                "branches": [ref.name for ref in repo.heads],
+            }
 
             # Add new commit
             (repo_path / "file2.txt").write_text("new content")
