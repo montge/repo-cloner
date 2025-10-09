@@ -1,0 +1,35 @@
+# Core Git Operations
+GitPython>=3.1.40
+
+# API Clients - Git Platforms
+PyGithub>=2.1.1
+python-gitlab>=4.4.0
+
+# Cloud Storage SDKs
+boto3>=1.34.0                    # AWS S3
+azure-storage-blob>=12.19.0      # Azure Blob Storage
+google-cloud-storage>=2.14.0     # Google Cloud Storage
+oci>=2.119.0                     # Oracle Cloud Infrastructure
+
+# Configuration & Validation
+PyYAML>=6.0.1
+pydantic>=2.5.0
+
+# CLI Framework
+click>=8.1.7
+
+# HTTP Client (for async operations)
+httpx>=0.26.0
+aiofiles>=23.2.1
+
+# Dependency Management Libraries
+packaging>=23.2              # Parse version specifiers
+toml>=0.10.2                # Parse TOML files (Cargo.toml, pyproject.toml)
+xmltodict>=0.13.0           # Parse Maven pom.xml
+semver>=3.0.2               # Semantic versioning
+
+# Progress Bars
+tqdm>=4.66.1
+
+# Retry Logic
+tenacity>=8.2.3

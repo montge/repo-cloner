@@ -1,0 +1,137 @@
+version: '3.8'
+
+# Docker Compose configuration for test infrastructure
+# Provides local emulators for cloud storage and Git platforms
+
+services:
+  # AWS S3 emulator
+  localstack:
+    image: localstack/localstack:latest
+    container_name: repo-cloner-localstack
+    ports:
+      - "4566:4566"  # LocalStack edge port
+    environment:
+      - SERVICES=s3
+      - DEFAULT_REGION=us-east-1
+      - EAGER_SERVICE_LOADING=1
+      - DEBUG=0
+    volumes:
+      - localstack-data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Azure Blob Storage emulator
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: repo-cloner-azurite
+    ports:
+      - "10000:10000"  # Blob service
+      - "10001:10001"  # Queue service
+      - "10002:10002"  # Table service
+    volumes:
+      - azurite-data:/data
+    command: azurite-blob --blobHost 0.0.0.0
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "10000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Google Cloud Storage emulator
+  fake-gcs-server:
+    image: fsouza/fake-gcs-server:latest
+    container_name: repo-cloner-fake-gcs
+    ports:
+      - "4443:4443"
+    command: ["-scheme", "http", "-port", "4443"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4443/storage/v1/b"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO (S3-compatible storage)
+  minio:
+    image: minio/minio:latest
+    container_name: repo-cloner-minio
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # GitLab CE (for integration tests)
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: repo-cloner-gitlab
+    ports:
+      - "8080:80"
+      - "8443:443"
+      - "8022:22"
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:8080'
+        gitlab_rails['initial_root_password'] = 'testpassword123'
+        # Disable features not needed for testing
+        prometheus_monitoring['enable'] = false
+        grafana['enable'] = false
+        gitlab_kas['enable'] = false
+    volumes:
+      - gitlab-config:/etc/gitlab
+      - gitlab-logs:/var/log/gitlab
+      - gitlab-data:/var/opt/gitlab
+    shm_size: '256m'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/-/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  # Gitea (lightweight Git server)
+  gitea:
+    image: gitea/gitea:latest
+    container_name: repo-cloner-gitea
+    ports:
+      - "3000:3000"
+      - "3022:22"
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__security__INSTALL_LOCK=true
+      - GITEA__service__DISABLE_REGISTRATION=false
+    volumes:
+      - gitea-data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  localstack-data:
+  azurite-data:
+  minio-data:
+  gitlab-config:
+  gitlab-logs:
+  gitlab-data:
+  gitea-data:
+
+networks:
+  default:
+    name: repo-cloner-test-network
