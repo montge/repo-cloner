@@ -37,7 +37,7 @@ class LargeRepoHandler:
             Dictionary with clone results:
             - success: bool
         """
-        kwargs = {"depth": depth}
+        kwargs: Dict[str, Any] = {"depth": depth}
 
         if single_branch:
             kwargs["single_branch"] = True
@@ -45,7 +45,7 @@ class LargeRepoHandler:
         if branch:
             kwargs["branch"] = branch
 
-        git.Repo.clone_from(source_url, target_path, **kwargs)
+        git.Repo.clone_from(source_url, target_path, **kwargs)  # type: ignore[arg-type]
 
         return {"success": True}
 
