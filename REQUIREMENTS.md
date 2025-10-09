@@ -174,17 +174,18 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
 - **FR-11.4**: Optional: Track local-only branches (exclude from sync)
 
 ### FR-12: Dependency Management & Fetching
-- **FR-12.1**: Auto-detect programming languages and dependency manifests in repositories
-  - Python: requirements.txt, Pipfile, pyproject.toml, setup.py
-  - Node.js: package.json, package-lock.json, yarn.lock, pnpm-lock.yaml
-  - Java/JVM: pom.xml (Maven), build.gradle (Gradle), build.sbt (SBT)
-  - Ruby: Gemfile, Gemfile.lock
-  - Rust: Cargo.toml, Cargo.lock
-  - Go: go.mod, go.sum
-  - C/C++: conanfile.txt/py (Conan), vcpkg.json
-  - Ada: alire.toml
-  - Fortran: fpm.toml
-  - Others: .NET/NuGet, PHP/Composer, Swift/CocoaPods
+- **FR-12.1**: Auto-detect programming languages and dependency manifests in repositories (Top 10 Languages + Additional)
+  - **Python**: requirements.txt, Pipfile, pyproject.toml, setup.py, poetry.lock
+  - **Java/JVM**: pom.xml (Maven), build.gradle (Gradle), build.sbt (SBT)
+  - **JavaScript/TypeScript**: package.json, package-lock.json, yarn.lock, pnpm-lock.yaml
+  - **C++**: CMakeLists.txt (CMake with FetchContent/CPM), conanfile.txt/py (Conan), vcpkg.json (vcpkg)
+  - **C**: Same as C++ (CMake, Conan, vcpkg)
+  - **C#/.NET**: *.csproj, packages.config, PackageReference, global.json
+  - **Go**: go.mod, go.sum
+  - **PHP**: composer.json, composer.lock
+  - **Rust**: Cargo.toml, Cargo.lock
+  - **Ruby**: Gemfile, Gemfile.lock
+  - **Additional Languages**: Swift (Podfile, Package.swift), Scala (build.sbt), Ada (alire.toml), Fortran (fpm.toml)
 - **FR-12.2**: Fetch dependencies from package registries:
   - Public registries (PyPI, npm, Maven Central, crates.io, etc.)
   - Private registries (Nexus, Artifactory, JFrog, Verdaccio, Athens)

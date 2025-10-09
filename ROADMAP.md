@@ -850,73 +850,104 @@ For true air-gap deployments, repositories alone are insufficient. Dependencies 
   - Parse dependency manifest files
   - Support for multiple languages in monorepos
 
-#### 2. Language-Specific Dependency Fetchers
+#### 2. Language-Specific Dependency Fetchers (Top 10 Languages + Additional)
 
-**Python**
-- [ ] Parse `requirements.txt`, `Pipfile`, `pyproject.toml`, `setup.py`
+**Python** (#1 in 2025 - AI, ML, Data Science, Web)
+- [ ] Parse `requirements.txt`, `Pipfile`, `pyproject.toml`, `setup.py`, `poetry.lock`
 - [ ] Fetch from PyPI, private PyPI servers (Nexus, Artifactory, JFrog)
 - [ ] Support authentication (username/password, token, .pypirc)
 - [ ] Download wheels and source distributions
 - [ ] Generate `pip install --no-index --find-links` compatible directory
 
-**JavaScript/Node.js**
-- [ ] Parse `package.json`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
-- [ ] Fetch from npm, Yarn, private npm registries (Verdaccio, Nexus, Artifactory)
-- [ ] Support `.npmrc` authentication (tokens, credentials)
-- [ ] Download tarballs with dependency tree resolution
-- [ ] Generate offline-compatible `node_modules` archive
-
-**Java/JVM**
+**Java** (#2 in 2025 - Enterprise, Android)
 - [ ] Parse `pom.xml` (Maven), `build.gradle` (Gradle), `build.sbt` (SBT)
 - [ ] Fetch from Maven Central, JCenter, private Nexus/Artifactory
 - [ ] Support `settings.xml` authentication and mirror configuration
 - [ ] Download JARs, POMs, and transitive dependencies
 - [ ] Generate local Maven repository structure
 
-**Ruby**
-- [ ] Parse `Gemfile`, `Gemfile.lock`
-- [ ] Fetch from RubyGems.org, private gem servers
-- [ ] Support bundler configuration and credentials
-- [ ] Download gems with dependency resolution
-- [ ] Generate `bundle install --local` compatible gem directory
+**JavaScript/TypeScript** (#3/#7 in 2025 - Web Development, Large-Scale Apps)
+- [ ] Parse `package.json`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
+- [ ] Detect TypeScript (tsconfig.json) but use same npm/yarn tooling
+- [ ] Fetch from npm, Yarn, pnpm, private npm registries (Verdaccio, Nexus, Artifactory)
+- [ ] Support `.npmrc` authentication (tokens, credentials)
+- [ ] Download tarballs with dependency tree resolution
+- [ ] Generate offline-compatible `node_modules` archive
 
-**Rust**
-- [ ] Parse `Cargo.toml`, `Cargo.lock`
-- [ ] Fetch from crates.io, private Cargo registries
-- [ ] Support `.cargo/config.toml` with registry authentication
-- [ ] Download crates with dependency graph
-- [ ] Generate local crate mirror
-
-**C/C++**
+**C++** (#4 in 2025 - System Programming, High Performance)
+- [ ] Parse `CMakeLists.txt` (CMake with FetchContent/CPM.cmake)
 - [ ] Parse `conanfile.txt`, `conanfile.py` (Conan)
 - [ ] Parse `vcpkg.json` (vcpkg)
-- [ ] Fetch from Conan Center, private Conan servers, vcpkg
+- [ ] Fetch from Conan Center, vcpkg, private Conan servers
 - [ ] Support authentication for private Conan remotes
 - [ ] Download pre-built binaries and sources
 
-**Go**
+**C** (#5 in 2025 - Embedded Systems, Speed)
+- [ ] Parse `CMakeLists.txt` (CMake - same as C++)
+- [ ] Parse `conanfile.txt/py`, `vcpkg.json` (same tooling as C++)
+- [ ] Fetch dependencies using same C++ package managers
+- [ ] Download libraries and headers
+
+**C#/.NET** (#6 in 2025 - Enterprise, Unity Game Dev)
+- [ ] Parse `*.csproj` (PackageReference format)
+- [ ] Parse `packages.config` (legacy format)
+- [ ] Parse `global.json` (SDK version pinning)
+- [ ] Fetch from NuGet.org, private NuGet feeds (Nexus, Artifactory, Azure Artifacts)
+- [ ] Support `nuget.config` authentication
+- [ ] Download `.nupkg` files with dependency resolution
+- [ ] Generate offline NuGet package cache
+
+**Go** (#8 in 2025 - Cloud, Backend Services)
 - [ ] Parse `go.mod`, `go.sum`
 - [ ] Fetch from proxy.golang.org, private Go proxies (Athens, Artifactory)
 - [ ] Support GOPRIVATE and authentication via .netrc
 - [ ] Download modules with checksums
 - [ ] Generate GOPROXY-compatible directory
 
-**Ada**
+**PHP** (#9 in 2025 - Server-Side, 75.6% of Websites)
+- [ ] Parse `composer.json`, `composer.lock`
+- [ ] Fetch from Packagist.org, private Satis/Toran repositories
+- [ ] Support `auth.json` authentication
+- [ ] Download packages with dependency resolution
+- [ ] Generate offline-compatible `vendor/` directory
+
+**Rust** (#10 in 2025 - System Programming, Performance-Critical)
+- [ ] Parse `Cargo.toml`, `Cargo.lock`
+- [ ] Fetch from crates.io, private Cargo registries
+- [ ] Support `.cargo/config.toml` with registry authentication
+- [ ] Download crates with dependency graph
+- [ ] Generate local crate mirror
+
+**Additional Languages**
+
+**Ruby** (Still widely used in web)
+- [ ] Parse `Gemfile`, `Gemfile.lock`
+- [ ] Fetch from RubyGems.org, private gem servers
+- [ ] Support bundler configuration and credentials
+- [ ] Download gems with dependency resolution
+- [ ] Generate `bundle install --local` compatible gem directory
+
+**Swift** (iOS, macOS development)
+- [ ] Parse `Podfile`, `Podfile.lock` (CocoaPods)
+- [ ] Parse `Package.swift` (Swift Package Manager)
+- [ ] Fetch from CocoaPods specs, GitHub
+- [ ] Download pods and SPM packages
+
+**Scala** (JVM functional programming)
+- [ ] Parse `build.sbt` (SBT)
+- [ ] Fetch from Maven Central, private repositories
+- [ ] Generate local Ivy/Maven cache
+
+**Ada** (Safety-critical systems)
 - [ ] Parse `alire.toml` (Alire package manager)
 - [ ] Fetch from Alire index
 - [ ] Support custom Alire repositories
 - [ ] Download crates
 
-**Fortran**
+**Fortran** (Scientific computing)
 - [ ] Parse `fpm.toml` (Fortran Package Manager)
 - [ ] Fetch from fpm registry
 - [ ] Download dependencies
-
-**Other Languages**
-- [ ] .NET/NuGet (`*.csproj`, `packages.config`)
-- [ ] PHP/Composer (`composer.json`, `composer.lock`)
-- [ ] Swift/CocoaPods (`Podfile`, `Podfile.lock`)
-- [ ] Scala/SBT (`build.sbt`)
 
 #### 3. Package Registry Clients
 - [ ] `PackageRegistryClient` abstract base class
@@ -1097,14 +1128,17 @@ archive-root/
 ```
 
 ### Definition of Done
-- ✅ Detect dependencies for Python, Node.js, Java, Ruby, Rust, C/C++, Go
-- ✅ Fetch packages from public and private registries
-- ✅ Authentication works for major private registry types (Nexus, Artifactory)
-- ✅ Dependencies included in unified archives
-- ✅ Restore scripts successfully install dependencies offline
-- ✅ Manifest accurately describes all fetched packages
+- ✅ Detect dependencies for **Top 10 Languages 2025**:
+  - Python, Java, JavaScript/TypeScript, C++, C, C#/.NET, Go, PHP, Rust
+- ✅ Detect dependencies for **Additional Languages**:
+  - Ruby, Swift, Scala, Ada, Fortran
+- ✅ Fetch packages from public and private registries for all supported languages
+- ✅ Authentication works for major private registry types (Nexus, Artifactory, JFrog, Azure Artifacts, Verdaccio, Athens, Satis)
+- ✅ Dependencies included in unified archives with per-language subdirectories
+- ✅ Restore scripts successfully install dependencies offline for all languages
+- ✅ Manifest accurately describes all fetched packages with checksums
 - ✅ All tests pass with >80% coverage
-- ✅ Documentation includes air-gap deployment guide
+- ✅ Documentation includes comprehensive air-gap deployment guide with examples for top 10 languages
 
 ### Libraries/Tools to Use
 
