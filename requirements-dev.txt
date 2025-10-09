@@ -27,6 +27,9 @@ mypy>=1.8.0                 # Type checking
 isort>=5.13.2               # Import sorting
 pylint>=3.0.3               # Additional linting
 
+# Type Stubs
+types-PyYAML>=6.0.12         # Type stubs for PyYAML
+
 # Pre-commit
 pre-commit>=3.6.0
 
