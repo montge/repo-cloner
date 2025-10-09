@@ -1,5 +1,6 @@
 """Mapper for converting GitLab group paths to GitHub organization names."""
 
+import re
 from typing import Dict, Optional
 
 
@@ -80,3 +81,67 @@ class GroupMapper:
         # Extract group path (everything except last component)
         group_path = "/".join(parts[:-1])
         raise ValueError(f"No GitHub organization mapping found for GitLab group: {group_path}")
+
+
+class FlattenMapper:
+    """
+    Maps GitLab group hierarchies to flat GitHub repository names.
+
+    Converts GitLab paths like "group/subgroup/repo" to "group-subgroup-repo"
+    by replacing path separators with a configurable separator (default: hyphen).
+    """
+
+    def __init__(self, separator: str = "-"):
+        """
+        Initialize FlattenMapper.
+
+        Args:
+            separator: Character to use as separator (default: "-")
+        """
+        self.separator = separator
+
+    def map(self, gitlab_path: str) -> str:
+        """
+        Map GitLab path to flattened GitHub repository name.
+
+        Args:
+            gitlab_path: GitLab repository path (e.g., "group/subgroup/repo")
+
+        Returns:
+            Flattened GitHub repository name (e.g., "group-subgroup-repo")
+
+        Raises:
+            ValueError: If gitlab_path is empty
+            TypeError: If gitlab_path is None
+        """
+        if gitlab_path is None:
+            raise TypeError("gitlab_path cannot be None")
+
+        if not gitlab_path or not gitlab_path.strip():
+            raise ValueError("gitlab_path cannot be empty")
+
+        # Normalize path: remove leading/trailing slashes, collapse multiple slashes
+        normalized = re.sub(r"/+", "/", gitlab_path.strip("/"))
+
+        # Replace path separators with configured separator
+        github_name = normalized.replace("/", self.separator)
+
+        return github_name
+
+    def reverse(self, github_name: str) -> str:
+        """
+        Reverse mapping from GitHub name to GitLab path.
+
+        Note: This is not a true reverse operation as the original path
+        structure cannot be uniquely determined from the flattened name.
+        Returns the name as-is for informational purposes.
+
+        Args:
+            github_name: GitHub repository name
+
+        Returns:
+            The same name (cannot uniquely reverse flatten operation)
+        """
+        # Cannot uniquely reverse flatten operation without additional context
+        # Return as-is to indicate this limitation
+        return github_name
