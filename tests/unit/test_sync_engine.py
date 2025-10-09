@@ -209,7 +209,10 @@ class TestSyncEngine:
             # Assert
             assert conflicts["has_conflicts"] is True
             assert len(conflicts["conflicting_branches"]) > 0
-            assert "master" in conflicts["conflicting_branches"] or "main" in conflicts["conflicting_branches"]
+            assert (
+                "master" in conflicts["conflicting_branches"]
+                or "main" in conflicts["conflicting_branches"]
+            )
 
     def test_detect_conflicts_no_conflicts_when_fast_forward(self):
         """Test that detect_conflicts returns no conflicts for fast-forward merges."""

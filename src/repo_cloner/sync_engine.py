@@ -163,7 +163,9 @@ class SyncEngine:
             "conflicting_branches": conflicting_branches,
         }
 
-    def resolve_conflicts(self, source_url: str, target_url: str, strategy: str = "fail_fast") -> Dict:
+    def resolve_conflicts(
+        self, source_url: str, target_url: str, strategy: str = "fail_fast"
+    ) -> Dict:
         """
         Resolve conflicts between repositories.
 
