@@ -1,11 +1,10 @@
 """Unit tests for GitClient class."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from repo_cloner.git_client import CloneResult, GitClient, PushResult
+from repo_cloner.git_client import GitClient
 
 
 @pytest.mark.unit

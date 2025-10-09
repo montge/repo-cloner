@@ -1,7 +1,6 @@
 """Command-line interface for repo-cloner."""
 
 import sys
-from pathlib import Path
 
 import click
 
