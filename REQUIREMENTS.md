@@ -408,11 +408,157 @@ graph LR
 5. Clear documentation enabling new users to set up in under 30 minutes
 6. 90%+ test coverage with integration tests against real Git operations
 
+## Testing Infrastructure & Mocking Strategy
+
+To enable comprehensive TDD without requiring accounts on all cloud providers and Git platforms, the following local emulators and mocking tools will be used:
+
+### Cloud Storage Emulators
+
+| Provider | Emulator/Mock Tool | Implementation |
+|----------|-------------------|----------------|
+| **AWS S3** | **LocalStack** (free tier) or **moto** | LocalStack provides full S3 API emulation; moto is Python library for mocking boto3 calls |
+| **Azure Blob** | **Azurite** (official Microsoft emulator) | Full Azure Storage emulation including Blob, Queue, and Table |
+| **Google Cloud Storage** | **fake-gcs-server** or **gcs-emulator** | Standalone GCS emulator with full API compatibility |
+| **Oracle OCI** | **Mock testing with responses/unittest.mock** | No official emulator; use Python mocking libraries to simulate OCI SDK calls |
+| **S3-Compatible** | **MinIO** (actual S3-compatible server) | Run MinIO locally as real S3-compatible storage for testing |
+| **Local Filesystem** | **pytest tmpdir/tmp_path fixtures** | Native Python testing with temporary directories |
+
+### Git Platform Emulators
+
+| Platform | Emulator/Mock Tool | Implementation |
+|----------|-------------------|----------------|
+| **GitLab** | **GitLab Docker Container** (gitlab/gitlab-ce) | Run actual GitLab CE locally via Docker for integration tests |
+| **GitLab API** | **responses** or **requests-mock** libraries | Mock python-gitlab HTTP calls for unit tests |
+| **GitHub** | **GitHub API mocking with responses** | Mock PyGithub HTTP calls; no local GitHub available |
+| **GitHub (advanced)** | **Gitea** or **Gogs** (Git hosting alternatives) | Lightweight Git servers with GitHub-like APIs for integration tests |
+| **Git operations** | **Local Git repositories** | Create test repos with git CLI in temporary directories |
+
+### Testing Strategy by Layer
+
+**Unit Tests (Fast, No External Dependencies):**
+- Use **moto** for S3 operations (in-memory mocking)
+- Use **responses** or **requests-mock** for GitLab/GitHub API calls
+- Use **unittest.mock** for OCI SDK calls
+- Use **pytest tmp_path** for filesystem operations
+- Mock all external HTTP/API calls
+
+**Integration Tests (Medium Speed, Local Services):**
+- Use **LocalStack** for AWS S3 (Docker container)
+- Use **Azurite** for Azure Blob (Docker container or NPM package)
+- Use **fake-gcs-server** for GCS (Docker container)
+- Use **MinIO** for S3-compatible testing (Docker container)
+- Use **GitLab CE Docker** for GitLab integration tests
+- Use **Gitea/Gogs Docker** for lightweight Git server tests
+- Real git operations with local repositories
+
+**E2E Tests (Slow, Optional Real Services):**
+- Use actual cloud services if credentials available (CI/CD only)
+- Use test accounts on GitLab.com and GitHub.com
+- Full workflow testing with real APIs
+
+### Recommended Testing Tools (Python Libraries)
+
+```python
+# requirements-dev.txt
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+moto[s3]>=4.0.0           # AWS S3 mocking
+responses>=0.20.0          # HTTP response mocking
+requests-mock>=1.9.0       # Alternative HTTP mocking
+faker>=18.0.0              # Generate test data
+freezegun>=1.2.0           # Mock datetime for testing
+docker>=6.0.0              # Control Docker containers from tests
+testcontainers>=3.7.0      # Manage test Docker containers
+```
+
+### Docker Compose for Local Testing
+
+A `docker-compose.test.yml` will provide all local emulators:
+
+```yaml
+version: '3.8'
+services:
+  # AWS S3 emulator
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"  # LocalStack edge port
+    environment:
+      - SERVICES=s3
+      - DEFAULT_REGION=us-east-1
+
+  # Azure Blob emulator
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    ports:
+      - "10000:10000"  # Blob service
+
+  # GCS emulator
+  fake-gcs-server:
+    image: fsouza/fake-gcs-server:latest
+    ports:
+      - "4443:4443"
+    command: ["-scheme", "http"]
+
+  # MinIO (S3-compatible)
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"  # Console
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+
+  # GitLab CE (for integration tests)
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    ports:
+      - "8080:80"
+      - "8443:443"
+      - "8022:22"
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:8080'
+
+  # Gitea (lightweight Git server)
+  gitea:
+    image: gitea/gitea:latest
+    ports:
+      - "3000:3000"
+      - "3022:22"
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+```
+
+### Test Execution Strategy
+
+1. **Local Development**: Use mocked services (moto, responses) - instant feedback
+2. **Pre-Commit**: Unit tests + filesystem integration tests
+3. **CI/CD Pipeline**:
+   - Run all unit tests with mocks
+   - Spin up Docker Compose with emulators for integration tests
+   - Optionally run E2E tests against real services (using secrets)
+
+### Benefits of This Approach
+
+✅ **No cloud accounts needed** for development and most testing
+✅ **Fast test execution** with in-memory mocks
+✅ **Consistent test environment** across all developers
+✅ **Offline development** possible with local emulators
+✅ **Cost-effective** - no cloud API charges for testing
+✅ **True TDD** - write tests first without external dependencies
+
 ## Assumptions & Dependencies
 
 - Git CLI installed on execution environment (v2.30+)
 - Git LFS CLI installed if LFS support needed
-- Network connectivity between GitLab and GitHub (for non-air-gap)
+- Network connectivity between GitLab and GitHub (for non-air-gap in production)
 - Sufficient disk space for temporary clone storage
-- API rate limits are sufficient for planned operations
-- Users have necessary permissions on both GitLab and GitHub
+- API rate limits are sufficient for planned operations (production only)
+- Users have necessary permissions on both GitLab and GitHub (production only)
+- **Development/Testing**: Docker installed for running emulators (optional but recommended)
+- **CI/CD**: Docker Compose for integration test environment

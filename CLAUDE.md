@@ -226,9 +226,45 @@ GitLab supports nested groups (e.g., `backend/auth/service`), but GitHub has fla
 
 ## Testing Requirements
 
+### Testing Infrastructure (No Cloud Accounts Needed!)
+
+**Cloud Storage Emulators:**
+- **AWS S3**: LocalStack (Docker) or moto (Python mocking)
+- **Azure Blob**: Azurite (official Microsoft emulator)
+- **GCS**: fake-gcs-server (Docker)
+- **OCI**: unittest.mock (no official emulator)
+- **S3-Compatible**: MinIO (Docker)
+- **Filesystem**: pytest tmp_path fixtures
+
+**Git Platform Emulators:**
+- **GitLab**: GitLab CE Docker container or responses/requests-mock for API
+- **GitHub**: responses library for API mocking, or Gitea/Gogs for Git server
+- **Git Operations**: Local repositories in temporary directories
+
+**Test Layers:**
+- **Unit Tests**: Fast, in-memory mocks (moto, responses, unittest.mock)
+- **Integration Tests**: Docker containers (LocalStack, Azurite, MinIO, GitLab CE, Gitea)
+- **E2E Tests**: Optional real services in CI/CD only
+
+**Key Testing Tools:**
+```bash
+# Start all emulators for integration testing
+docker-compose -f docker-compose.test.yml up -d
+
+# Run unit tests (fast, mocked)
+pytest tests/unit/ -v
+
+# Run integration tests (with Docker emulators)
+pytest tests/integration/ -v
+
+# Run all tests with coverage
+pytest tests/ -v --cov=src/repo_cloner --cov-report=html
+```
+
+### Coverage Requirements
 - **Unit Tests**: Mock external dependencies (API calls, git operations)
-- **Integration Tests**: Use real Git operations with test repositories
-- **E2E Tests**: Full workflow with actual GitLab/GitHub test accounts (use dedicated test orgs)
+- **Integration Tests**: Use Docker emulators and real Git operations
+- **E2E Tests**: Optional with actual GitLab/GitHub test accounts
 - **Coverage Target**: >80% overall, >90% for core logic
 
 ## Documentation
