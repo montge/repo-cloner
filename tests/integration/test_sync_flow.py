@@ -110,9 +110,7 @@ class TestSyncFlow:
 
             # Act - Resolve with source-wins
             resolution = engine.resolve_conflicts(
-                source_url=str(source_path),
-                target_url=str(target_path),
-                strategy="source_wins"
+                source_url=str(source_path), target_url=str(target_path), strategy="source_wins"
             )
 
             # Assert - Resolution successful
