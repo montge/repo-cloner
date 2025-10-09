@@ -17,6 +17,17 @@ class CloneResult:
     message: str = ""
 
 
+@dataclass
+class PushResult:
+    """Result of a push operation."""
+
+    success: bool
+    target_url: str
+    error_message: str = ""
+    dry_run: bool = False
+    message: str = ""
+
+
 class GitClient:
     """Client for Git operations using GitPython."""
 
@@ -62,4 +73,45 @@ class GitClient:
                 local_path=local_path,
                 branches_count=0,
                 error_message=str(e),
+            )
+
+    def push_mirror(
+        self, local_path: str, target_url: str, dry_run: bool = False
+    ) -> PushResult:
+        """
+        Push a Git repository as a mirror (all refs, branches, tags) to target.
+
+        Args:
+            local_path: Local path of the repository to push
+            target_url: URL of the target repository
+            dry_run: If True, log operation without executing
+
+        Returns:
+            PushResult with success status and metadata
+        """
+        if dry_run:
+            return PushResult(
+                success=True,
+                target_url=target_url,
+                dry_run=True,
+                message=f"DRY-RUN: Would push {local_path} to {target_url} with mirror=True",
+            )
+
+        try:
+            # Open existing repository
+            repo = git.Repo(local_path)
+
+            # Create temporary remote
+            remote = repo.create_remote("target", target_url)
+
+            # Push with mirror flag (all refs)
+            remote.push(mirror=True)
+
+            # Clean up temporary remote
+            repo.delete_remote("target")
+
+            return PushResult(success=True, target_url=target_url)
+        except Exception as e:
+            return PushResult(
+                success=False, target_url=target_url, error_message=str(e)
             )

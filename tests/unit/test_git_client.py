@@ -2,7 +2,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
-from repo_cloner.git_client import GitClient, CloneResult
+from repo_cloner.git_client import GitClient, CloneResult, PushResult
 
 
 @pytest.mark.unit
@@ -90,3 +90,83 @@ class TestGitClient:
             assert result.success is True
             assert result.dry_run is True
             assert "DRY-RUN" in result.message
+
+    def test_push_mirror_pushes_to_target(self, tmp_path):
+        """Test that push_mirror pushes all refs to target repository."""
+        # Arrange
+        client = GitClient()
+        local_path = tmp_path / "test-repo"
+        target_url = "https://github.com/test/target.git"
+
+        # Mock GitPython
+        with patch('repo_cloner.git_client.git.Repo') as mock_repo_class:
+            mock_repo = MagicMock()
+            mock_remote = MagicMock()
+            mock_repo.create_remote.return_value = mock_remote
+            mock_repo_class.return_value = mock_repo
+
+            # Act
+            result = client.push_mirror(str(local_path), target_url)
+
+            # Assert
+            assert result.success is True
+            assert result.target_url == target_url
+            mock_repo.create_remote.assert_called_once_with('target', target_url)
+            mock_remote.push.assert_called_once_with(mirror=True)
+
+    def test_push_mirror_handles_push_error(self, tmp_path):
+        """Test that push_mirror handles Git push errors gracefully."""
+        # Arrange
+        client = GitClient()
+        local_path = tmp_path / "test-repo"
+        target_url = "https://github.com/test/target.git"
+
+        # Mock GitPython to raise error
+        with patch('repo_cloner.git_client.git.Repo') as mock_repo_class:
+            mock_repo_class.side_effect = Exception("Failed to push: authentication required")
+
+            # Act
+            result = client.push_mirror(str(local_path), target_url)
+
+            # Assert
+            assert result.success is False
+            assert "authentication required" in result.error_message
+
+    def test_push_mirror_with_dry_run_does_not_push(self, tmp_path):
+        """Test that dry_run mode logs without actually pushing."""
+        # Arrange
+        client = GitClient()
+        local_path = tmp_path / "test-repo"
+        target_url = "https://github.com/test/target.git"
+
+        # Mock
+        with patch('repo_cloner.git_client.git.Repo') as mock_repo_class:
+            # Act
+            result = client.push_mirror(str(local_path), target_url, dry_run=True)
+
+            # Assert - Repo should NOT be called in dry-run
+            mock_repo_class.assert_not_called()
+            assert result.success is True
+            assert result.dry_run is True
+            assert "DRY-RUN" in result.message
+
+    def test_push_mirror_removes_temp_remote_after_push(self, tmp_path):
+        """Test that push_mirror cleans up temporary remote after push."""
+        # Arrange
+        client = GitClient()
+        local_path = tmp_path / "test-repo"
+        target_url = "https://github.com/test/target.git"
+
+        # Mock GitPython
+        with patch('repo_cloner.git_client.git.Repo') as mock_repo_class:
+            mock_repo = MagicMock()
+            mock_remote = MagicMock()
+            mock_repo.create_remote.return_value = mock_remote
+            mock_repo_class.return_value = mock_repo
+
+            # Act
+            result = client.push_mirror(str(local_path), target_url)
+
+            # Assert - remote should be removed after push
+            assert result.success is True
+            mock_repo.delete_remote.assert_called_once_with('target')
