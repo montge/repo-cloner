@@ -186,9 +186,12 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
   - **Rust**: Cargo.toml, Cargo.lock
   - **Ruby**: Gemfile, Gemfile.lock
   - **Additional Languages**: Swift (Podfile, Package.swift), Scala (build.sbt), Ada (alire.toml), Fortran (fpm.toml)
-- **FR-12.2**: Fetch dependencies from package registries:
+- **FR-12.2**: Fetch dependencies from package registries with full transitive dependency resolution:
   - Public registries (PyPI, npm, Maven Central, crates.io, etc.)
   - Private registries (Nexus, Artifactory, JFrog, Verdaccio, Athens)
+  - **Resolve all levels of dependencies** (direct, transitive, and nested)
+  - Handle circular dependency detection and resolution
+  - Support dependency graphs with unlimited depth
 - **FR-12.3**: Authenticate to private package registries:
   - Credential sources: environment variables, config files (.npmrc, .pypirc, settings.xml)
   - Token-based and username/password authentication
@@ -197,7 +200,9 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
   - Unified archive format (repo + dependencies)
   - Per-language subdirectories (python/, nodejs/, java/, etc.)
   - Dependency manifests with checksums and versions
-  - Preserve lock files for deterministic builds
+  - **Complete dependency graphs** with all transitive dependencies
+  - Preserve lock files for deterministic builds (ensures same versions on restore)
+  - Dependency tree visualization in manifest (show multi-level relationships)
 - **FR-12.5**: Generate offline installation structures:
   - Python: pip install --no-index --find-links compatible
   - Node.js: offline node_modules or tarball cache

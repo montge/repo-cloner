@@ -855,24 +855,28 @@ For true air-gap deployments, repositories alone are insufficient. Dependencies 
 **Python** (#1 in 2025 - AI, ML, Data Science, Web)
 - [ ] Parse `requirements.txt`, `Pipfile`, `pyproject.toml`, `setup.py`, `poetry.lock`
 - [ ] Fetch from PyPI, private PyPI servers (Nexus, Artifactory, JFrog)
+- [ ] **Resolve transitive dependencies**: Use pip's resolver or parse package metadata recursively
 - [ ] Support authentication (username/password, token, .pypirc)
-- [ ] Download wheels and source distributions
+- [ ] Download wheels and source distributions for all dependency levels
 - [ ] Generate `pip install --no-index --find-links` compatible directory
 
 **Java** (#2 in 2025 - Enterprise, Android)
 - [ ] Parse `pom.xml` (Maven), `build.gradle` (Gradle), `build.sbt` (SBT)
 - [ ] Fetch from Maven Central, JCenter, private Nexus/Artifactory
+- [ ] **Resolve all transitive dependencies**: Use Maven/Gradle dependency resolution algorithms
 - [ ] Support `settings.xml` authentication and mirror configuration
-- [ ] Download JARs, POMs, and transitive dependencies
-- [ ] Generate local Maven repository structure
+- [ ] Download JARs, POMs, and all transitive dependencies (unlimited depth)
+- [ ] Generate local Maven repository structure with complete dependency tree
 
 **JavaScript/TypeScript** (#3/#7 in 2025 - Web Development, Large-Scale Apps)
 - [ ] Parse `package.json`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
 - [ ] Detect TypeScript (tsconfig.json) but use same npm/yarn tooling
 - [ ] Fetch from npm, Yarn, pnpm, private npm registries (Verdaccio, Nexus, Artifactory)
+- [ ] **Resolve deep dependency trees**: npm can have 10+ levels of nested dependencies
+- [ ] Use lock files for deterministic resolution of transitive dependencies
 - [ ] Support `.npmrc` authentication (tokens, credentials)
-- [ ] Download tarballs with dependency tree resolution
-- [ ] Generate offline-compatible `node_modules` archive
+- [ ] Download tarballs for entire dependency graph (all nested levels)
+- [ ] Generate offline-compatible `node_modules` archive with complete tree
 
 **C++** (#4 in 2025 - System Programming, High Performance)
 - [ ] Parse `CMakeLists.txt` (CMake with FetchContent/CPM.cmake)
@@ -893,30 +897,35 @@ For true air-gap deployments, repositories alone are insufficient. Dependencies 
 - [ ] Parse `packages.config` (legacy format)
 - [ ] Parse `global.json` (SDK version pinning)
 - [ ] Fetch from NuGet.org, private NuGet feeds (Nexus, Artifactory, Azure Artifacts)
+- [ ] **Resolve transitive dependencies**: NuGet automatically resolves package dependencies
 - [ ] Support `nuget.config` authentication
-- [ ] Download `.nupkg` files with dependency resolution
-- [ ] Generate offline NuGet package cache
+- [ ] Download `.nupkg` files for all dependency levels
+- [ ] Generate offline NuGet package cache with complete dependency graph
 
 **Go** (#8 in 2025 - Cloud, Backend Services)
 - [ ] Parse `go.mod`, `go.sum`
 - [ ] Fetch from proxy.golang.org, private Go proxies (Athens, Artifactory)
+- [ ] **Resolve transitive module dependencies**: Go modules automatically resolve indirect dependencies
 - [ ] Support GOPRIVATE and authentication via .netrc
-- [ ] Download modules with checksums
-- [ ] Generate GOPROXY-compatible directory
+- [ ] Download all modules (direct + indirect) with checksums from go.sum
+- [ ] Generate GOPROXY-compatible directory with complete module graph
 
 **PHP** (#9 in 2025 - Server-Side, 75.6% of Websites)
 - [ ] Parse `composer.json`, `composer.lock`
 - [ ] Fetch from Packagist.org, private Satis/Toran repositories
+- [ ] **Resolve transitive dependencies**: Composer resolves multi-level package dependencies
+- [ ] Use composer.lock for deterministic resolution
 - [ ] Support `auth.json` authentication
-- [ ] Download packages with dependency resolution
-- [ ] Generate offline-compatible `vendor/` directory
+- [ ] Download all packages (direct + transitive dependencies)
+- [ ] Generate offline-compatible `vendor/` directory with complete dependency tree
 
 **Rust** (#10 in 2025 - System Programming, Performance-Critical)
 - [ ] Parse `Cargo.toml`, `Cargo.lock`
 - [ ] Fetch from crates.io, private Cargo registries
+- [ ] **Resolve transitive dependencies**: Cargo.lock contains full dependency graph
 - [ ] Support `.cargo/config.toml` with registry authentication
-- [ ] Download crates with dependency graph
-- [ ] Generate local crate mirror
+- [ ] Download all crates (direct + transitive) from dependency graph
+- [ ] Generate local crate mirror with complete dependency tree
 
 **Additional Languages**
 
@@ -1045,25 +1054,47 @@ repo-cloner deps list --repo /path/to/repo
    - Mock PyPI HTTP responses
    - **Then**: Download wheel/sdist with checksum verification
 
-3. **Test**: `test_authenticate_to_private_pypi()`
+3. **Test**: `test_resolve_python_transitive_dependencies()`
+   - Given package `requests` (which depends on `urllib3`, `certifi`, `charset-normalizer`, `idna`)
+   - **Then**: Fetch all 5 packages (1 direct + 4 transitive)
+   - Verify complete dependency tree
+
+4. **Test**: `test_resolve_nodejs_deep_dependency_tree()`
+   - Given package with 10+ levels of nested dependencies
+   - Use package-lock.json for deterministic resolution
+   - **Then**: Fetch all packages from all levels
+   - Verify no missing dependencies
+
+5. **Test**: `test_resolve_java_transitive_dependencies()`
+   - Given pom.xml with Spring Boot (has 50+ transitive dependencies)
+   - **Then**: Use Maven resolver to fetch all JARs
+   - Verify complete dependency graph
+
+6. **Test**: `test_circular_dependency_detection()`
+   - Given packages with circular dependencies (A→B→C→A)
+   - **Then**: Detect cycle, resolve without infinite loop
+
+7. **Test**: `test_authenticate_to_private_pypi()`
    - Mock private registry with 401 → authenticated request
    - **Then**: Implement auth injection
 
-4. **Test**: `test_detect_multiple_languages_in_monorepo()`
+8. **Test**: `test_detect_multiple_languages_in_monorepo()`
    - Given repo with `package.json` + `requirements.txt`
-   - **Then**: Detect both, fetch from both ecosystems
+   - **Then**: Detect both, fetch from both ecosystems with all transitive deps
 
-5. **Test**: `test_generate_offline_installation_structure()`
+9. **Test**: `test_generate_offline_installation_structure()`
    - **Then**: Create directory layout compatible with offline install
+   - Verify all transitive dependencies included
 
-6. **Test**: `test_dependency_manifest_generation()`
-   - **Then**: Generate JSON/YAML manifest with all package metadata
+10. **Test**: `test_dependency_manifest_includes_full_graph()`
+    - **Then**: Generate manifest with dependency tree visualization
+    - Show direct → transitive → nested relationships
 
-7. **Test**: `test_archive_includes_dependencies()`
-   - **Then**: Unified archive with repo + deps
+11. **Test**: `test_archive_includes_all_transitive_dependencies()`
+    - **Then**: Unified archive with repo + complete dependency graph
 
-8. **Integration Test**: `test_full_air_gap_workflow()`
-   - Clone repo → fetch deps → archive → restore → verify install works offline
+12. **Integration Test**: `test_full_air_gap_workflow_with_deep_dependencies()`
+    - Clone repo with deep dependency trees → fetch all levels → archive → restore → verify install works offline without any missing packages
 
 ### Technical Decisions
 
@@ -1106,7 +1137,7 @@ archive-root/
     └── setup-java.sh          # mvn install with local repo
 ```
 
-**Manifest Format:**
+**Manifest Format (with Transitive Dependencies):**
 ```json
 {
   "language": "python",
@@ -1118,10 +1149,46 @@ archive-root/
       "source_url": "https://pypi.org/simple/requests/",
       "filename": "requests-2.31.0-py3-none-any.whl",
       "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
-      "size_bytes": 62574
+      "size_bytes": 62574,
+      "dependency_type": "direct",
+      "dependencies": ["urllib3", "certifi", "charset-normalizer", "idna"]
+    },
+    {
+      "name": "urllib3",
+      "version": "2.0.7",
+      "source_url": "https://pypi.org/simple/urllib3/",
+      "filename": "urllib3-2.0.7-py3-none-any.whl",
+      "sha256": "...",
+      "size_bytes": 123904,
+      "dependency_type": "transitive",
+      "required_by": ["requests"]
+    },
+    {
+      "name": "certifi",
+      "version": "2023.7.22",
+      "source_url": "https://pypi.org/simple/certifi/",
+      "filename": "certifi-2023.7.22-py3-none-any.whl",
+      "sha256": "...",
+      "size_bytes": 158000,
+      "dependency_type": "transitive",
+      "required_by": ["requests"]
     }
   ],
+  "dependency_tree": {
+    "requests": {
+      "version": "2.31.0",
+      "dependencies": {
+        "urllib3": {"version": "2.0.7", "dependencies": {}},
+        "certifi": {"version": "2023.7.22", "dependencies": {}},
+        "charset-normalizer": {"version": "3.3.0", "dependencies": {}},
+        "idna": {"version": "3.4", "dependencies": {}}
+      }
+    }
+  },
   "total_packages": 25,
+  "direct_packages": 3,
+  "transitive_packages": 22,
+  "max_dependency_depth": 2,
   "total_size_bytes": 5242880,
   "fetched_at": "2025-10-09T12:00:00Z"
 }
@@ -1132,12 +1199,28 @@ archive-root/
   - Python, Java, JavaScript/TypeScript, C++, C, C#/.NET, Go, PHP, Rust
 - ✅ Detect dependencies for **Additional Languages**:
   - Ruby, Swift, Scala, Ada, Fortran
+- ✅ **Resolve all transitive dependencies** (unlimited depth):
+  - Direct dependencies (explicitly listed in manifest files)
+  - Transitive dependencies (dependencies of dependencies)
+  - Deep nested dependencies (10+ levels for Node.js, 50+ for Java Spring Boot)
+  - Circular dependency detection and resolution
 - ✅ Fetch packages from public and private registries for all supported languages
 - ✅ Authentication works for major private registry types (Nexus, Artifactory, JFrog, Azure Artifacts, Verdaccio, Athens, Satis)
 - ✅ Dependencies included in unified archives with per-language subdirectories
+  - Complete dependency graphs (no missing transitive dependencies)
+  - Dependency tree visualization in manifest
 - ✅ Restore scripts successfully install dependencies offline for all languages
+  - No network calls required during restore
+  - No missing packages errors
 - ✅ Manifest accurately describes all fetched packages with checksums
+  - Include dependency_type: "direct" or "transitive"
+  - Include required_by: list of packages that depend on this one
+  - Include dependency_tree: nested structure showing relationships
+  - Include max_dependency_depth: deepest level in tree
 - ✅ All tests pass with >80% coverage
+  - Tests for transitive dependency resolution
+  - Tests for deep dependency trees (10+ levels)
+  - Tests for circular dependency detection
 - ✅ Documentation includes comprehensive air-gap deployment guide with examples for top 10 languages
 
 ### Libraries/Tools to Use
