@@ -266,31 +266,37 @@ class SyncEngine:
 
         if not previous_sha:
             # First sync, no previous state
-            result.update({
-                "has_new_commits": True,
-                "new_commit_count": 1,
-                "old_commits": [],
-                "new_commits": [current_sha],
-            })
+            result.update(
+                {
+                    "has_new_commits": True,
+                    "new_commit_count": 1,
+                    "old_commits": [],
+                    "new_commits": [current_sha],
+                }
+            )
         elif current_sha == previous_sha:
             # No commit changes
-            result.update({
-                "has_new_commits": False,
-                "new_commit_count": 0,
-                "old_commits": [previous_sha],
-                "new_commits": [],
-            })
+            result.update(
+                {
+                    "has_new_commits": False,
+                    "new_commit_count": 0,
+                    "old_commits": [previous_sha],
+                    "new_commits": [],
+                }
+            )
         else:
             # Find commits between previous and current
             commits = list(repo.iter_commits(f"{previous_sha}..{current_sha}"))
             new_commit_shas = [commit.hexsha for commit in commits]
 
-            result.update({
-                "has_new_commits": True,
-                "new_commit_count": len(new_commit_shas),
-                "old_commits": [previous_sha],
-                "new_commits": new_commit_shas,
-            })
+            result.update(
+                {
+                    "has_new_commits": True,
+                    "new_commit_count": len(new_commit_shas),
+                    "old_commits": [previous_sha],
+                    "new_commits": new_commit_shas,
+                }
+            )
 
         # Detect branch changes
         current_branches = set(ref.name for ref in repo.heads)
@@ -299,13 +305,15 @@ class SyncEngine:
         new_branches = current_branches - previous_branches
         deleted_branches = previous_branches - current_branches
 
-        result.update({
-            "has_new_branches": len(new_branches) > 0,
-            "new_branches": list(new_branches),
-            "new_branch_count": len(new_branches),
-            "has_deleted_branches": len(deleted_branches) > 0,
-            "deleted_branches": list(deleted_branches),
-            "deleted_branch_count": len(deleted_branches),
-        })
+        result.update(
+            {
+                "has_new_branches": len(new_branches) > 0,
+                "new_branches": list(new_branches),
+                "new_branch_count": len(new_branches),
+                "has_deleted_branches": len(deleted_branches) > 0,
+                "deleted_branches": list(deleted_branches),
+                "deleted_branch_count": len(deleted_branches),
+            }
+        )
 
         return result

@@ -44,11 +44,14 @@ class TestSyncFlow:
             )
 
             # Save state after first sync
-            state_manager.save_state("test-repo", {
-                "last_commit": initial_commit.hexsha,
-                "branches": [ref.name for ref in source_repo.heads],
-                "last_sync": "2025-10-09T12:00:00Z",
-            })
+            state_manager.save_state(
+                "test-repo",
+                {
+                    "last_commit": initial_commit.hexsha,
+                    "branches": [ref.name for ref in source_repo.heads],
+                    "last_sync": "2025-10-09T12:00:00Z",
+                },
+            )
 
             # Act - Step 2: Make changes on source
             (source_path / "file2.txt").write_text("New file on source")
@@ -135,10 +138,13 @@ class TestSyncFlow:
             engine = SyncEngine()
 
             # Save initial state
-            state_manager.save_state("repo1", {
-                "last_commit": commit1.hexsha,
-                "branches": ["master"],
-            })
+            state_manager.save_state(
+                "repo1",
+                {
+                    "last_commit": commit1.hexsha,
+                    "branches": ["master"],
+                },
+            )
 
             # Add more commits
             (repo_path / "file2.txt").write_text("v2")
@@ -161,10 +167,13 @@ class TestSyncFlow:
             assert commit3.hexsha in changes["new_commits"]
 
             # Update state
-            state_manager.save_state("repo1", {
-                "last_commit": commit3.hexsha,
-                "branches": [ref.name for ref in repo.heads],
-            })
+            state_manager.save_state(
+                "repo1",
+                {
+                    "last_commit": commit3.hexsha,
+                    "branches": [ref.name for ref in repo.heads],
+                },
+            )
 
             # Verify state updated
             updated_state = state_manager.load_state("repo1")
