@@ -624,18 +624,324 @@ This roadmap follows an iterative, sprint-based approach using Test-Driven Devel
 
 ---
 
-## Post-Sprint: Optional Enhancements
+---
 
-### Future Considerations (Not in Initial Roadmap)
+## Sprint 9 (Enhancement): Dependency Fetching & Air-Gap Package Management (Week 19-20)
+
+### Goals
+- Fetch and archive external dependencies from package repositories
+- Support multiple language ecosystems
+- Handle authenticated package registries
+- Enable true air-gap deployments with all dependencies
+
+### User Stories
+- **US-9.1**: As a user, I can fetch all dependencies for a repository automatically
+- **US-9.2**: As a user, I can archive dependencies alongside repository archives
+- **US-9.3**: As a user, I can authenticate to private package registries (Nexus, Artifactory, etc.)
+- **US-9.4**: As a user, I can restore dependencies in an air-gap environment
+
+### Overview
+
+For true air-gap deployments, repositories alone are insufficient. Dependencies from external package repositories (PyPI, npm, Maven Central, crates.io, etc.) must also be archived. This sprint adds comprehensive dependency detection, fetching, and archiving across multiple language ecosystems.
+
+### Deliverables
+
+#### 1. Dependency Detection System
+- [ ] `DependencyDetector` class
+  - Auto-detect language/framework from repository structure
+  - Parse dependency manifest files
+  - Support for multiple languages in monorepos
+
+#### 2. Language-Specific Dependency Fetchers
+
+**Python**
+- [ ] Parse `requirements.txt`, `Pipfile`, `pyproject.toml`, `setup.py`
+- [ ] Fetch from PyPI, private PyPI servers (Nexus, Artifactory, JFrog)
+- [ ] Support authentication (username/password, token, .pypirc)
+- [ ] Download wheels and source distributions
+- [ ] Generate `pip install --no-index --find-links` compatible directory
+
+**JavaScript/Node.js**
+- [ ] Parse `package.json`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
+- [ ] Fetch from npm, Yarn, private npm registries (Verdaccio, Nexus, Artifactory)
+- [ ] Support `.npmrc` authentication (tokens, credentials)
+- [ ] Download tarballs with dependency tree resolution
+- [ ] Generate offline-compatible `node_modules` archive
+
+**Java/JVM**
+- [ ] Parse `pom.xml` (Maven), `build.gradle` (Gradle), `build.sbt` (SBT)
+- [ ] Fetch from Maven Central, JCenter, private Nexus/Artifactory
+- [ ] Support `settings.xml` authentication and mirror configuration
+- [ ] Download JARs, POMs, and transitive dependencies
+- [ ] Generate local Maven repository structure
+
+**Ruby**
+- [ ] Parse `Gemfile`, `Gemfile.lock`
+- [ ] Fetch from RubyGems.org, private gem servers
+- [ ] Support bundler configuration and credentials
+- [ ] Download gems with dependency resolution
+- [ ] Generate `bundle install --local` compatible gem directory
+
+**Rust**
+- [ ] Parse `Cargo.toml`, `Cargo.lock`
+- [ ] Fetch from crates.io, private Cargo registries
+- [ ] Support `.cargo/config.toml` with registry authentication
+- [ ] Download crates with dependency graph
+- [ ] Generate local crate mirror
+
+**C/C++**
+- [ ] Parse `conanfile.txt`, `conanfile.py` (Conan)
+- [ ] Parse `vcpkg.json` (vcpkg)
+- [ ] Fetch from Conan Center, private Conan servers, vcpkg
+- [ ] Support authentication for private Conan remotes
+- [ ] Download pre-built binaries and sources
+
+**Go**
+- [ ] Parse `go.mod`, `go.sum`
+- [ ] Fetch from proxy.golang.org, private Go proxies (Athens, Artifactory)
+- [ ] Support GOPRIVATE and authentication via .netrc
+- [ ] Download modules with checksums
+- [ ] Generate GOPROXY-compatible directory
+
+**Ada**
+- [ ] Parse `alire.toml` (Alire package manager)
+- [ ] Fetch from Alire index
+- [ ] Support custom Alire repositories
+- [ ] Download crates
+
+**Fortran**
+- [ ] Parse `fpm.toml` (Fortran Package Manager)
+- [ ] Fetch from fpm registry
+- [ ] Download dependencies
+
+**Other Languages**
+- [ ] .NET/NuGet (`*.csproj`, `packages.config`)
+- [ ] PHP/Composer (`composer.json`, `composer.lock`)
+- [ ] Swift/CocoaPods (`Podfile`, `Podfile.lock`)
+- [ ] Scala/SBT (`build.sbt`)
+
+#### 3. Package Registry Clients
+- [ ] `PackageRegistryClient` abstract base class
+- [ ] Pluggable architecture for each package ecosystem
+- [ ] Authentication handling (tokens, username/password, certificates)
+- [ ] Retry logic for network failures
+- [ ] Checksum verification for downloaded packages
+
+#### 4. Dependency Archive Manager
+- [ ] `DependencyArchiver` class
+  - Archive dependencies by language/ecosystem
+  - Create manifest of all fetched packages (name, version, URL, checksum)
+  - Support for multiple ecosystems in single repository
+  - Integrate with existing `ArchiveManager` for unified archives
+
+#### 5. Configuration Extensions
+```yaml
+dependencies:
+  enabled: true
+
+  # Package registry authentication
+  registries:
+    pypi:
+      url: https://pypi.org/simple
+      username: ${PYPI_USER}
+      password: ${PYPI_PASS}
+
+    npm:
+      url: https://registry.npmjs.org
+      token: ${NPM_TOKEN}
+
+    maven:
+      url: https://repo.maven.apache.org/maven2
+      mirrors:
+        - id: nexus
+          url: https://nexus.example.com/repository/maven-public
+          username: ${NEXUS_USER}
+          password: ${NEXUS_PASS}
+
+    rubygems:
+      url: https://rubygems.org
+      credentials: ~/.gem/credentials
+
+    cargo:
+      registry: https://crates.io
+      token: ${CARGO_TOKEN}
+
+  # Per-language settings
+  python:
+    include_dev_dependencies: false
+    prefer_wheels: true
+
+  nodejs:
+    include_dev_dependencies: false
+    lock_file_type: auto  # auto, package-lock, yarn, pnpm
+
+  java:
+    include_test_dependencies: false
+    download_sources: true
+    download_javadocs: false
+```
+
+#### 6. CLI Commands
+```bash
+# Fetch dependencies for a repository
+repo-cloner deps fetch \
+  --repo /path/to/repo \
+  --output /path/to/deps
+
+# Archive repo + dependencies together
+repo-cloner archive create \
+  --source https://gitlab.com/org/repo \
+  --output /path/to/archives \
+  --include-dependencies
+
+# Restore repo with dependencies in air-gap
+repo-cloner archive restore \
+  --archive repo-full-20250109.tar.gz \
+  --target https://github.com/org/repo \
+  --install-dependencies  # Set up local package cache
+
+# List detected dependencies
+repo-cloner deps list --repo /path/to/repo
+```
+
+### Test Strategy (TDD)
+
+**Write tests FIRST:**
+
+1. **Test**: `test_detect_python_dependencies()`
+   - Given repo with `requirements.txt`
+   - **Then**: Detect Python, parse dependencies
+
+2. **Test**: `test_fetch_python_package_from_pypi()`
+   - Mock PyPI HTTP responses
+   - **Then**: Download wheel/sdist with checksum verification
+
+3. **Test**: `test_authenticate_to_private_pypi()`
+   - Mock private registry with 401 → authenticated request
+   - **Then**: Implement auth injection
+
+4. **Test**: `test_detect_multiple_languages_in_monorepo()`
+   - Given repo with `package.json` + `requirements.txt`
+   - **Then**: Detect both, fetch from both ecosystems
+
+5. **Test**: `test_generate_offline_installation_structure()`
+   - **Then**: Create directory layout compatible with offline install
+
+6. **Test**: `test_dependency_manifest_generation()`
+   - **Then**: Generate JSON/YAML manifest with all package metadata
+
+7. **Test**: `test_archive_includes_dependencies()`
+   - **Then**: Unified archive with repo + deps
+
+8. **Integration Test**: `test_full_air_gap_workflow()`
+   - Clone repo → fetch deps → archive → restore → verify install works offline
+
+### Technical Decisions
+
+**Dependency Resolution:**
+- Use existing language-specific tools where possible:
+  - Python: `pip download` or parse lock files
+  - Node.js: Parse lock files (package-lock.json, yarn.lock)
+  - Java: Maven Dependency Plugin or Gradle
+  - Ruby: `bundle package`
+  - Rust: `cargo fetch`
+- Parse lock files for deterministic dependency trees
+- Implement fallback manual parsing for simple cases
+
+**Authentication:**
+- Support environment variables for credentials
+- Support config files (`.npmrc`, `.pypirc`, `settings.xml`, etc.)
+- Secure credential storage (encrypted or via secret managers)
+- Never log credentials
+
+**Storage Layout:**
+```
+archive-root/
+├── repo/                      # Git repository
+├── dependencies/
+│   ├── python/
+│   │   ├── packages/          # .whl and .tar.gz files
+│   │   └── manifest.json
+│   ├── nodejs/
+│   │   ├── node_modules/      # Offline node_modules
+│   │   └── manifest.json
+│   ├── java/
+│   │   ├── m2-repo/           # Local Maven repo structure
+│   │   └── manifest.json
+│   └── ruby/
+│       ├── gems/
+│       └── manifest.json
+└── restore-scripts/
+    ├── setup-python.sh        # pip install --no-index --find-links
+    ├── setup-nodejs.sh        # npm install --offline
+    └── setup-java.sh          # mvn install with local repo
+```
+
+**Manifest Format:**
+```json
+{
+  "language": "python",
+  "manifest_file": "requirements.txt",
+  "packages": [
+    {
+      "name": "requests",
+      "version": "2.31.0",
+      "source_url": "https://pypi.org/simple/requests/",
+      "filename": "requests-2.31.0-py3-none-any.whl",
+      "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
+      "size_bytes": 62574
+    }
+  ],
+  "total_packages": 25,
+  "total_size_bytes": 5242880,
+  "fetched_at": "2025-10-09T12:00:00Z"
+}
+```
+
+### Definition of Done
+- ✅ Detect dependencies for Python, Node.js, Java, Ruby, Rust, C/C++, Go
+- ✅ Fetch packages from public and private registries
+- ✅ Authentication works for major private registry types (Nexus, Artifactory)
+- ✅ Dependencies included in unified archives
+- ✅ Restore scripts successfully install dependencies offline
+- ✅ Manifest accurately describes all fetched packages
+- ✅ All tests pass with >80% coverage
+- ✅ Documentation includes air-gap deployment guide
+
+### Libraries/Tools to Use
+
+```python
+# requirements-dev.txt additions
+packaging>=23.0          # Parse version specifiers
+toml>=0.10.2            # Parse TOML files (Cargo.toml, pyproject.toml)
+xmltodict>=0.13.0       # Parse Maven pom.xml
+semver>=3.0.0           # Semantic versioning
+httpx>=0.24.0           # Async HTTP client for downloads
+aiofiles>=23.0.0        # Async file I/O
+```
+
+**Command-Line Tools (optional, shell out if needed):**
+- `pip download`
+- `npm pack` / `yarn pack`
+- `mvn dependency:copy-dependencies`
+- `bundle package`
+- `cargo fetch`
+
+---
+
+## Post-Sprint: Future Enhancements
+
+### Future Considerations (Beyond Sprint 9)
 - **Web Dashboard**: Monitor sync status via web UI
 - **Metrics & Monitoring**: Prometheus/Grafana integration
-- **Bi-directional Sync**: GitHub → GitLab
 - **Wiki Migration**: Clone GitLab wikis
 - **Issue Migration**: Optionally migrate issues (complex, separate project)
 - **Advanced Conflict Resolution**: Merge strategies, interactive resolution
-- **Multi-cloud Support**: Azure Blob Storage, GCP Cloud Storage
 - **Performance Optimization**: Rust rewrite for core Git operations
 - **Plugin System**: Allow custom pre/post-sync hooks
+- **Container Image Archiving**: Fetch Docker/OCI images referenced in repos
+- **Dependency Vulnerability Scanning**: Integrate with Snyk, Dependabot
+- **Build Artifact Caching**: Cache compiled artifacts for faster air-gap deployments
 
 ---
 
