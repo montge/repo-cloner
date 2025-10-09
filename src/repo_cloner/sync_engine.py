@@ -1,5 +1,7 @@
 """Synchronization engine for repository mirroring and updates."""
 
+import tempfile
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import git
@@ -11,6 +13,93 @@ class SyncEngine:
     def __init__(self):
         """Initialize SyncEngine."""
         pass
+
+    def sync_repository(
+        self,
+        source_url: str,
+        target_url: str,
+        direction: str = "source_to_target",
+        strategy: str = "mirror",
+    ) -> Dict:
+        """
+        Synchronize repository from source to target.
+
+        Args:
+            source_url: Source repository URL or path
+            target_url: Target repository URL or path
+            direction: Sync direction (source_to_target, target_to_source, bidirectional)
+            strategy: Sync strategy (mirror, incremental)
+
+        Returns:
+            Dictionary with sync results:
+            - success: bool
+            - direction: str
+            - commits_synced: int
+            - branches_synced: int
+        """
+        if direction == "source_to_target":
+            return self._sync_unidirectional(source_url, target_url, strategy)
+        elif direction == "target_to_source":
+            return self._sync_unidirectional(target_url, source_url, strategy)
+        elif direction == "bidirectional":
+            # For now, simplified bidirectional (will add conflict detection later)
+            result1 = self._sync_unidirectional(source_url, target_url, strategy)
+            result2 = self._sync_unidirectional(target_url, source_url, strategy)
+            return {
+                "success": result1["success"] and result2["success"],
+                "direction": "bidirectional",
+                "commits_synced": result1["commits_synced"] + result2["commits_synced"],
+                "branches_synced": result1["branches_synced"] + result2["branches_synced"],
+            }
+        else:
+            raise ValueError(f"Unknown direction: {direction}")
+
+    def _sync_unidirectional(self, source_url: str, target_url: str, strategy: str) -> Dict:
+        """
+        Perform unidirectional sync from source to target.
+
+        Args:
+            source_url: Source repository
+            target_url: Target repository
+            strategy: mirror or incremental
+
+        Returns:
+            Sync result dictionary
+        """
+        # Clone source to temp directory
+        with tempfile.TemporaryDirectory() as tmpdir:
+            local_path = Path(tmpdir) / "repo"
+            repo = git.Repo.clone_from(source_url, local_path, mirror=True)
+
+            # Push to target
+            if strategy == "mirror":
+                # Mirror push (all refs)
+                try:
+                    remote = repo.create_remote("target", target_url)
+                    remote.push(mirror=True)
+                    repo.delete_remote(remote)
+
+                    # Count commits and branches
+                    commits_count = sum(1 for _ in repo.iter_commits("--all"))
+                    branches_count = len(list(repo.heads))
+
+                    return {
+                        "success": True,
+                        "direction": "source_to_target",
+                        "commits_synced": commits_count,
+                        "branches_synced": branches_count,
+                    }
+                except Exception as e:
+                    return {
+                        "success": False,
+                        "direction": "source_to_target",
+                        "commits_synced": 0,
+                        "branches_synced": 0,
+                        "error": str(e),
+                    }
+            else:
+                # Incremental strategy (for future implementation)
+                raise NotImplementedError("Incremental strategy not yet implemented")
 
     def detect_changes(self, repo_path: str, previous_state: Dict) -> Dict:
         """

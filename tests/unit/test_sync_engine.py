@@ -111,3 +111,63 @@ class TestSyncEngine:
             assert changes["has_deleted_branches"] is True
             assert "feature-branch" in changes["deleted_branches"]
             assert changes["deleted_branch_count"] == 1
+
+    def test_sync_repository_unidirectional_source_to_target(self):
+        """Test sync_repository in unidirectional mode (source → target)."""
+        # Arrange
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = Path(tmpdir) / "source"
+            target_path = Path(tmpdir) / "target"
+
+            # Create source repository
+            source_repo = git.Repo.init(source_path)
+            (source_path / "file1.txt").write_text("content")
+            source_repo.index.add(["file1.txt"])
+            source_repo.index.commit("Initial commit")
+
+            # Create target repository (empty)
+            target_repo = git.Repo.init(target_path, bare=True)
+
+            # Create SyncEngine
+            engine = SyncEngine()
+
+            # Act - Sync source to target
+            result = engine.sync_repository(
+                source_url=str(source_path),
+                target_url=str(target_path),
+                direction="source_to_target",
+                strategy="mirror",
+            )
+
+            # Assert
+            assert result["success"] is True
+            assert result["direction"] == "source_to_target"
+            assert result["commits_synced"] > 0
+
+    def test_sync_repository_detects_no_changes(self):
+        """Test that sync_repository handles no changes efficiently."""
+        # Arrange
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = Path(tmpdir) / "source"
+
+            # Create source repository
+            source_repo = git.Repo.init(source_path)
+            (source_path / "file1.txt").write_text("content")
+            source_repo.index.add(["file1.txt"])
+            commit = source_repo.index.commit("Initial commit")
+
+            engine = SyncEngine()
+
+            # Mock state with current commit (simulating already synced)
+            mock_state = {
+                "last_commit": commit.hexsha,
+                "branches": [ref.name for ref in source_repo.heads],
+            }
+
+            # Act - Detect changes (should be none)
+            changes = engine.detect_changes(str(source_path), mock_state)
+
+            # Assert - No changes
+            assert changes["has_new_commits"] is False
+            assert changes["has_new_branches"] is False
+            assert changes["has_deleted_branches"] is False
