@@ -103,7 +103,7 @@ class GitClient:
             remote.push(mirror=True)
 
             # Clean up temporary remote
-            repo.delete_remote("target")
+            repo.delete_remote(remote)
 
             return PushResult(success=True, target_url=target_url)
         except Exception as e:

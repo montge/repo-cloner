@@ -167,6 +167,6 @@ class TestGitClient:
             # Act
             result = client.push_mirror(str(local_path), target_url)
 
-            # Assert - remote should be removed after push
+            # Assert - remote object should be passed to delete_remote
             assert result.success is True
-            mock_repo.delete_remote.assert_called_once_with("target")
+            mock_repo.delete_remote.assert_called_once_with(mock_remote)
