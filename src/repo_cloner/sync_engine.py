@@ -101,6 +101,138 @@ class SyncEngine:
                 # Incremental strategy (for future implementation)
                 raise NotImplementedError("Incremental strategy not yet implemented")
 
+    def detect_conflicts(self, repo1_path: str, repo2_path: str) -> Dict:
+        """
+        Detect conflicts between two repositories.
+
+        Args:
+            repo1_path: Path to first repository
+            repo2_path: Path to second repository
+
+        Returns:
+            Dictionary with conflict information:
+            - has_conflicts: bool
+            - conflicting_branches: list of branch names with conflicts
+        """
+        repo1 = git.Repo(repo1_path)
+        repo2 = git.Repo(repo2_path)
+
+        conflicting_branches = []
+
+        # Check each branch in repo1
+        for branch1 in repo1.heads:
+            branch_name = branch1.name
+
+            # Check if branch exists in repo2
+            try:
+                branch2 = repo2.heads[branch_name]
+            except (IndexError, AttributeError):
+                # Branch doesn't exist in repo2, no conflict
+                continue
+
+            # Check if commits have diverged
+            commit1 = branch1.commit
+            commit2 = branch2.commit
+
+            if commit1.hexsha == commit2.hexsha:
+                # Same commit, no conflict
+                continue
+
+            # Check if one is ancestor of the other (fast-forward possible)
+            try:
+                # Check if commit2 is ancestor of commit1 (repo1 is ahead)
+                is_ancestor = repo1.is_ancestor(commit2, commit1)
+                if is_ancestor:
+                    # repo2 can fast-forward to repo1, no conflict
+                    continue
+
+                # Check if commit1 is ancestor of commit2 (repo2 is ahead)
+                is_ancestor = repo1.is_ancestor(commit1, commit2)
+                if is_ancestor:
+                    # repo1 can fast-forward to repo2, no conflict
+                    continue
+
+                # Neither is ancestor of the other - diverged!
+                conflicting_branches.append(branch_name)
+            except git.exc.GitCommandError:
+                # Error checking ancestry, assume conflict
+                conflicting_branches.append(branch_name)
+
+        return {
+            "has_conflicts": len(conflicting_branches) > 0,
+            "conflicting_branches": conflicting_branches,
+        }
+
+    def resolve_conflicts(self, source_url: str, target_url: str, strategy: str = "fail_fast") -> Dict:
+        """
+        Resolve conflicts between repositories.
+
+        Args:
+            source_url: Source repository URL
+            target_url: Target repository URL
+            strategy: Resolution strategy (source_wins, target_wins, fail_fast)
+
+        Returns:
+            Dictionary with resolution results:
+            - success: bool
+            - resolution_strategy: str
+            - message: str
+        """
+        if strategy == "fail_fast":
+            return {
+                "success": False,
+                "resolution_strategy": "fail_fast",
+                "message": "Conflicts detected, failing fast as configured",
+            }
+        elif strategy == "source_wins":
+            # Force push source to target
+            try:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    local_path = Path(tmpdir) / "repo"
+                    repo = git.Repo.clone_from(source_url, local_path)
+                    remote = repo.create_remote("target", target_url)
+                    remote.push(mirror=True, force=True)
+                    repo.delete_remote(remote)
+
+                return {
+                    "success": True,
+                    "resolution_strategy": "source_wins",
+                    "message": "Source forced to target, conflicts resolved",
+                }
+            except Exception as e:
+                return {
+                    "success": False,
+                    "resolution_strategy": "source_wins",
+                    "message": f"Error resolving conflicts: {str(e)}",
+                }
+        elif strategy == "target_wins":
+            # Force push target to source
+            try:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    local_path = Path(tmpdir) / "repo"
+                    repo = git.Repo.clone_from(target_url, local_path)
+                    remote = repo.create_remote("source", source_url)
+                    remote.push(mirror=True, force=True)
+                    repo.delete_remote(remote)
+
+                return {
+                    "success": True,
+                    "resolution_strategy": "target_wins",
+                    "message": "Target forced to source, conflicts resolved",
+                }
+            except Exception as e:
+                return {
+                    "success": False,
+                    "resolution_strategy": "target_wins",
+                    "message": f"Error resolving conflicts: {str(e)}",
+                }
+        else:
+            return {
+                "success": False,
+                "resolution_strategy": strategy,
+                "message": f"Unknown resolution strategy: {strategy}",
+            }
+
     def detect_changes(self, repo_path: str, previous_state: Dict) -> Dict:
         """
         Detect changes in repository since previous state.
