@@ -97,9 +97,13 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
 - **FR-5.7**: Generate manifest file with repository metadata for each export:
   - Repository name, source URL, archive type (full/incremental)
   - Timestamp, size, branches, tags, commit range
+  - **Git commit SHAs for all branches and tags** (exact versions)
+  - **Archive checksums** (SHA256 for integrity verification)
+  - **LFS object checksums** (SHA256 for each LFS file)
   - Storage backend type and location (path/bucket/container)
   - LFS object count and size
   - Parent archive reference (for incremental archives)
+  - **Dependency manifest checksums** (if dependencies included)
 - **FR-5.8**: Support archive chain reconstruction (base + incremental deltas)
 - **FR-5.9**: Verify archive integrity with checksums (SHA256)
 - **FR-5.10**: List and query available archives across all storage backends
@@ -137,11 +141,37 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
 - **FR-9.4**: State management to resume interrupted operations
 - **FR-9.5**: Notification mechanism for failures (email, Slack, etc.)
 
-### FR-10: Local Fork Support
-- **FR-10.1**: Cloned repositories should allow local forking in GitHub
-- **FR-10.2**: Support branch protection rules to prevent accidental overwrites
-- **FR-10.3**: Document workflow for adding local features while maintaining upstream sync
-- **FR-10.4**: Optional: Track local-only branches (exclude from sync)
+### FR-10: Version Tracking & Integrity Verification
+- **FR-10.1**: Track and preserve Git commit SHAs for all repositories
+  - Store commit SHA for every branch and tag
+  - Track head commit of default branch
+  - Maintain historical SHA records for auditing
+- **FR-10.2**: Generate and verify checksums for all artifacts:
+  - **Git Repositories**: Verify git bundle integrity
+  - **LFS Objects**: SHA256 checksums for all LFS files
+  - **Archives**: SHA256 checksums for tar.gz files
+  - **Dependencies**: Package-specific checksums (SHA256, MD5, etc.)
+- **FR-10.3**: Maintain comprehensive version manifests:
+  - Git commit SHAs per branch/tag
+  - Package versions with exact version numbers (no wildcards)
+  - Dependency lock file preservation (package-lock.json, Cargo.lock, etc.)
+  - Timestamp of capture for all versions
+- **FR-10.4**: Verification workflows:
+  - Verify archive checksums before extraction
+  - Verify LFS object checksums after download
+  - Verify dependency checksums during fetch
+  - Detect and report any integrity violations
+- **FR-10.5**: Audit trail for version changes:
+  - Log all commit SHA changes during sync
+  - Track when dependencies update (version changes)
+  - Generate diff reports showing version changes
+  - Alert on unexpected version rollbacks
+
+### FR-11: Local Fork Support
+- **FR-11.1**: Cloned repositories should allow local forking in GitHub
+- **FR-11.2**: Support branch protection rules to prevent accidental overwrites
+- **FR-11.3**: Document workflow for adding local features while maintaining upstream sync
+- **FR-11.4**: Optional: Track local-only branches (exclude from sync)
 
 ## Non-Functional Requirements
 
@@ -386,6 +416,111 @@ graph LR
 - **Full Archive**: Complete git bundle with all refs, commits, and LFS objects
 - **Incremental Archive**: Delta bundle containing only new commits/refs since last archive
 - **Manifest**: JSON file describing archive contents, parent references, and metadata
+
+**Example Manifest with Version Tracking & Checksums:**
+```json
+{
+  "archive_id": "backend-auth-service-full-20250109T120000Z",
+  "archive_type": "full",
+  "created_at": "2025-01-09T12:00:00Z",
+  "repository": {
+    "name": "backend-auth-service",
+    "source_url": "https://gitlab.example.com/backend/auth-service",
+    "source_platform": "gitlab"
+  },
+  "git_metadata": {
+    "default_branch": "main",
+    "branches": {
+      "main": {
+        "commit_sha": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0",
+        "commit_message": "Add authentication feature",
+        "author": "developer@example.com",
+        "timestamp": "2025-01-09T10:30:00Z"
+      },
+      "develop": {
+        "commit_sha": "b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1",
+        "commit_message": "WIP: New feature",
+        "author": "developer@example.com",
+        "timestamp": "2025-01-09T11:45:00Z"
+      }
+    },
+    "tags": {
+      "v1.0.0": {
+        "commit_sha": "c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2",
+        "tag_message": "Release 1.0.0",
+        "tagger": "release-bot@example.com",
+        "timestamp": "2025-01-01T00:00:00Z"
+      },
+      "v1.1.0": {
+        "commit_sha": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0",
+        "tag_message": "Release 1.1.0",
+        "tagger": "release-bot@example.com",
+        "timestamp": "2025-01-09T10:30:00Z"
+      }
+    },
+    "total_commits": 347,
+    "total_branches": 2,
+    "total_tags": 2
+  },
+  "archive_files": {
+    "git_bundle": {
+      "filename": "repository.bundle",
+      "size_bytes": 52428800,
+      "sha256": "d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4"
+    },
+    "archive": {
+      "filename": "backend-auth-service-full-20250109T120000Z.tar.gz",
+      "size_bytes": 104857600,
+      "sha256": "e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5"
+    }
+  },
+  "lfs_objects": {
+    "enabled": true,
+    "total_objects": 12,
+    "total_size_bytes": 52428800,
+    "objects": [
+      {
+        "oid": "sha256:f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6",
+        "size_bytes": 10485760,
+        "pointer_file": "assets/large-image.png"
+      },
+      {
+        "oid": "sha256:g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6k7",
+        "size_bytes": 5242880,
+        "pointer_file": "data/dataset.csv"
+      }
+    ]
+  },
+  "dependencies": {
+    "included": true,
+    "manifests": [
+      {
+        "language": "python",
+        "manifest_file": "requirements.txt",
+        "manifest_sha256": "h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6k7l8",
+        "lock_file": "requirements.lock",
+        "lock_file_sha256": "i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6k7l8m9",
+        "total_packages": 25,
+        "packages_sha256": "j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6k7l8m9n0"
+      }
+    ]
+  },
+  "storage": {
+    "backend_type": "s3",
+    "bucket": "my-archives",
+    "region": "us-east-1",
+    "key": "backups/backend-auth-service-full-20250109T120000Z.tar.gz"
+  },
+  "parent_archive": null,
+  "verification": {
+    "all_checksums_verified": true,
+    "git_bundle_verified": true,
+    "lfs_objects_verified": true,
+    "dependencies_verified": true,
+    "verification_timestamp": "2025-01-09T12:00:10Z"
+  }
+}
+```
 
 ## Out of Scope (For Initial Release)
 
