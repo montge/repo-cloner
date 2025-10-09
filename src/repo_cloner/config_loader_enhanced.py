@@ -3,7 +3,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -84,7 +84,6 @@ class ConfigLoader:
 
             # Pattern: ${VAR:-default} or ${VAR}
             def replace_var(match: re.Match[str]) -> str:
-                full_match = match.group(0)
                 var_with_default = match.group(1)
 
                 # Check if it has a default value

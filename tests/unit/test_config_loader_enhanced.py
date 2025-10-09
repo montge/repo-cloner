@@ -1,9 +1,7 @@
 """Unit tests for enhanced configuration loading and validation."""
 
-import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 import yaml
