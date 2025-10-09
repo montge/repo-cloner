@@ -13,7 +13,7 @@ Thank you for your interest in contributing! This project follows **Test-Driven 
 ## Development Environment
 
 ### Prerequisites
-- Python 3.11 or higher
+- Python 3.10 or higher (3.10, 3.11, 3.12 supported)
 - Docker and Docker Compose (for integration tests)
 - Git 2.30+
 - Git LFS (optional, for LFS tests)
