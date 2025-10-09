@@ -1,17 +1,33 @@
-# Requirements Document: GitLab to GitHub Repository Cloner
+# Requirements Document: Universal Repository Cloner & Synchronization Tool
 
 ## Executive Summary
 
-A tool to clone and synchronize Git repositories from GitLab (self-hosted or gitlab.com) to GitHub (Enterprise or github.com), supporting both automated GitHub Actions workflows and manual local execution.
+A flexible tool to clone and synchronize Git repositories between GitLab (self-hosted or gitlab.com), GitHub (Enterprise or github.com), and S3-compatible storage. Supports bidirectional synchronization, air-gap workflows with full and incremental archives, and both automated GitHub Actions workflows and manual local execution.
+
+**Supported Source/Target Combinations:**
+- GitLab ↔ GitHub (bidirectional)
+- GitLab ↔ GitLab (instance-to-instance migration)
+- GitHub ↔ GitHub (org-to-org migration)
+- GitLab → S3 (archive for air-gap)
+- GitHub → S3 (archive for air-gap)
+- S3 → GitLab (restore from air-gap)
+- S3 → GitHub (restore from air-gap)
 
 ## Functional Requirements
 
-### FR-1: Repository Cloning
-- **FR-1.1**: Support full mirror clones from GitLab repositories
+### FR-1: Repository Cloning & Source/Target Support
+- **FR-1.1**: Support full mirror clones from any Git hosting platform
 - **FR-1.2**: Preserve all branches, tags, and commit history
 - **FR-1.3**: Support Git LFS (Large File Storage) objects
 - **FR-1.4**: Handle both public and private repositories
 - **FR-1.5**: Support repository-level metadata (description, topics/tags where applicable)
+- **FR-1.6**: Support all source/target combinations:
+  - **GitLab → GitHub**: Primary use case for cross-platform migration
+  - **GitHub → GitLab**: Reverse migration or backup
+  - **GitLab → GitLab**: Instance-to-instance migration (cloud to self-hosted, etc.)
+  - **GitHub → GitHub**: Organization-to-organization migration
+  - **GitLab ↔ S3**: Archive/restore for air-gap environments
+  - **GitHub ↔ S3**: Archive/restore for air-gap environments
 
 ### FR-2: Authentication & Authorization
 - **FR-2.1**: Support GitLab authentication via:
@@ -26,29 +42,43 @@ A tool to clone and synchronize Git repositories from GitLab (self-hosted or git
   - GitHub: github.com and GitHub Enterprise Server
 
 ### FR-3: Synchronization
-- **FR-3.1**: Keep cloned repositories in sync with source GitLab repositories
+- **FR-3.1**: Keep cloned repositories in sync with source repositories (any platform)
 - **FR-3.2**: Detect and sync new commits, branches, and tags
 - **FR-3.3**: Handle force pushes and branch deletions
 - **FR-3.4**: Configurable sync frequency (scheduled via cron/GitHub Actions)
 - **FR-3.5**: Detect conflicts with local changes and provide resolution strategy
+- **FR-3.6**: Support bidirectional synchronization with conflict detection
+- **FR-3.7**: Allow sync direction configuration (source → target, target → source, bidirectional)
 
-### FR-4: GitLab Group Structure Mapping
-- **FR-4.1**: Map GitLab groups/subgroups to GitHub organizational structure
-- **FR-4.2**: Implement naming strategy for nested groups:
+### FR-4: Organization & Group Structure Mapping
+- **FR-4.1**: Map between different organizational structures (GitLab groups ↔ GitHub orgs)
+- **FR-4.2**: Implement naming strategy for nested structures:
   - Option A: Flatten with naming convention (e.g., `group-subgroup-repo`)
-  - Option B: Use GitHub Topics/Labels to represent group hierarchy
-  - Option C: Use separate GitHub organizations for top-level groups
+  - Option B: Use Topics/Labels to represent hierarchy
+  - Option C: Use separate organizations for top-level groups
   - Option D: Repository name prefixing (e.g., `backend-auth-service`)
-- **FR-4.3**: Maintain mapping configuration file for group-to-org/naming translation
-- **FR-4.4**: Support selective group filtering (clone only specific groups)
+- **FR-4.3**: Maintain mapping configuration file for org/group translation
+- **FR-4.4**: Support selective filtering (clone only specific orgs/groups)
+- **FR-4.5**: Handle GitHub org → GitHub org mapping (for org migrations)
+- **FR-4.6**: Handle GitLab group → GitLab group mapping (for instance migrations)
 
-### FR-5: Air-Gap Environment Support
-- **FR-5.1**: Export cloned repositories to archive format (tar.gz, zip)
-- **FR-5.2**: Upload archives to S3-compatible storage
+### FR-5: Air-Gap Environment Support & Archive Management
+- **FR-5.1**: Export repositories to archive format (tar.gz with git bundle)
+- **FR-5.2**: Upload archives to S3-compatible storage (AWS S3, MinIO, etc.)
 - **FR-5.3**: Support other storage backends (Azure Blob, GCS)
 - **FR-5.4**: Include LFS objects in exports
-- **FR-5.5**: Provide import functionality from archives
-- **FR-5.6**: Generate manifest file with repository metadata for each export
+- **FR-5.5**: Support two archive modes:
+  - **Full Clone**: Complete repository with all history and LFS objects
+  - **Incremental/Delta**: Only new commits, branches, tags since last archive
+- **FR-5.6**: Provide import/restore functionality from archives to GitLab or GitHub
+- **FR-5.7**: Generate manifest file with repository metadata for each export:
+  - Repository name, source URL, archive type (full/incremental)
+  - Timestamp, size, branches, tags, commit range
+  - LFS object count and size
+  - Parent archive reference (for incremental archives)
+- **FR-5.8**: Support archive chain reconstruction (base + incremental deltas)
+- **FR-5.9**: Verify archive integrity with checksums
+- **FR-5.10**: List and query available archives in S3 storage
 
 ### FR-6: Execution Modes
 - **FR-6.1**: GitHub Actions workflow for automated nightly execution
@@ -165,61 +195,125 @@ A tool to clone and synchronize Git repositories from GitLab (self-hosted or git
 
 ## Technical Architecture (High-Level)
 
+```mermaid
+graph TB
+    subgraph Execution["Execution Environment"]
+        GHA["GitHub Actions<br/>(Scheduled/Manual)"]
+        CLI["Local CLI<br/>(Manual Execution)"]
+    end
+
+    subgraph Core["Core Application"]
+        Config["Configuration Manager<br/>• YAML parsing & validation<br/>• Environment variable injection<br/>• Source/Target routing"]
+
+        RepoMgr["Repository Manager<br/>• Discovery (list repos/groups)<br/>• Clone/Mirror operations<br/>• Sync engine (fetch, push, LFS)<br/>• State tracking<br/>• Bidirectional sync"]
+
+        OrgMapper["Organization/Group Mapper<br/>• Parse org/group hierarchy<br/>• Map between platforms<br/>• Create repos/orgs as needed<br/>• Handle naming strategies"]
+
+        ArchiveMgr["Archive Manager<br/>• Full clone archives<br/>• Incremental/delta archives<br/>• Bundle creation (git bundle)<br/>• Archive chain reconstruction<br/>• Integrity verification"]
+
+        StorageMgr["Storage Manager<br/>• S3/cloud upload & download<br/>• Manifest generation<br/>• Archive listing & query<br/>• Multi-backend support"]
+
+        Logger["Logger & Reporter<br/>• Structured logging<br/>• Summary reports<br/>• Notifications"]
+    end
+
+    subgraph Sources["Source Systems"]
+        GL1["GitLab<br/>(gitlab.com)"]
+        GL2["GitLab<br/>(Self-hosted)"]
+        GH1["GitHub<br/>(github.com)"]
+        GH2["GitHub<br/>(Enterprise)"]
+        S3Read["S3 Storage<br/>(Read Archives)"]
+    end
+
+    subgraph Targets["Target Systems"]
+        GLT1["GitLab<br/>(gitlab.com)"]
+        GLT2["GitLab<br/>(Self-hosted)"]
+        GHT1["GitHub<br/>(github.com)"]
+        GHT2["GitHub<br/>(Enterprise)"]
+        S3Write["S3 Storage<br/>(Write Archives)"]
+    end
+
+    GHA --> Config
+    CLI --> Config
+
+    Config --> RepoMgr
+    Config --> OrgMapper
+    Config --> ArchiveMgr
+
+    RepoMgr --> OrgMapper
+    RepoMgr --> ArchiveMgr
+    ArchiveMgr --> StorageMgr
+
+    RepoMgr --> Logger
+    ArchiveMgr --> Logger
+    StorageMgr --> Logger
+
+    %% Source connections
+    RepoMgr -.->|Clone/Sync| GL1
+    RepoMgr -.->|Clone/Sync| GL2
+    RepoMgr -.->|Clone/Sync| GH1
+    RepoMgr -.->|Clone/Sync| GH2
+    StorageMgr -.->|Download| S3Read
+
+    %% Target connections
+    RepoMgr -.->|Push/Sync| GLT1
+    RepoMgr -.->|Push/Sync| GLT2
+    RepoMgr -.->|Push/Sync| GHT1
+    RepoMgr -.->|Push/Sync| GHT2
+    StorageMgr -.->|Upload| S3Write
+
+    style Core fill:#e1f5ff
+    style Execution fill:#fff4e1
+    style Sources fill:#f0f0f0
+    style Targets fill:#f0f0f0
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Execution Environment                    │
-│  ┌──────────────────────┐      ┌──────────────────────┐    │
-│  │  GitHub Actions      │      │   Local CLI          │    │
-│  │  (Scheduled/Manual)  │      │   (Manual Execution) │    │
-│  └──────────┬───────────┘      └──────────┬───────────┘    │
-│             └────────────────┬─────────────┘                │
-└──────────────────────────────┼──────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     Core Application                         │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │  Configuration Manager                              │    │
-│  │  (YAML parser, validation, env var injection)      │    │
-│  └────────────────────────────────────────────────────┘    │
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │  Repository Manager                                 │    │
-│  │  • Discovery (list GitLab repos/groups)            │    │
-│  │  • Clone/Mirror operations                          │    │
-│  │  • Sync engine (fetch, push, LFS)                  │    │
-│  │  • State tracking                                   │    │
-│  └────────────────────────────────────────────────────┘    │
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │  Group Mapper                                       │    │
-│  │  • Parse GitLab group hierarchy                     │    │
-│  │  • Map to GitHub naming strategy                    │    │
-│  │  • Create GitHub repos/orgs as needed               │    │
-│  └────────────────────────────────────────────────────┘    │
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │  Storage Manager                                    │    │
-│  │  • Archive creation (tar.gz)                        │    │
-│  │  • S3/cloud upload                                  │    │
-│  │  • Manifest generation                              │    │
-│  └────────────────────────────────────────────────────┘    │
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │  Logger & Reporter                                  │    │
-│  │  • Structured logging                               │    │
-│  │  • Summary reports                                  │    │
-│  │  • Notifications                                    │    │
-│  └────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────┘
-                               │
-                ┌──────────────┼──────────────┐
-                ▼              ▼              ▼
-         ┌──────────┐   ┌──────────┐   ┌──────────┐
-         │  GitLab  │   │  GitHub  │   │   S3     │
-         │ (Source) │   │ (Target) │   │ (Archive)│
-         └──────────┘   └──────────┘   └──────────┘
+
+### Supported Data Flow Paths
+
+The architecture supports all the following synchronization paths:
+
+1. **GitLab → GitHub**: `GL1/GL2 → RepoMgr → OrgMapper → GHT1/GHT2`
+2. **GitHub → GitLab**: `GH1/GH2 → RepoMgr → OrgMapper → GLT1/GLT2`
+3. **GitLab → GitLab**: `GL1/GL2 → RepoMgr → OrgMapper → GLT1/GLT2`
+4. **GitHub → GitHub**: `GH1/GH2 → RepoMgr → OrgMapper → GHT1/GHT2`
+5. **GitLab → S3**: `GL1/GL2 → RepoMgr → ArchiveMgr → StorageMgr → S3Write`
+6. **GitHub → S3**: `GH1/GH2 → RepoMgr → ArchiveMgr → StorageMgr → S3Write`
+7. **S3 → GitLab**: `S3Read → StorageMgr → ArchiveMgr → RepoMgr → GLT1/GLT2`
+8. **S3 → GitHub**: `S3Read → StorageMgr → ArchiveMgr → RepoMgr → GHT1/GHT2`
+
+### Archive Strategy
+
+```mermaid
+graph LR
+    subgraph "Full Archive"
+        F1["Full Clone<br/>repo-full-20250109.tar.gz<br/>All history + LFS"]
+    end
+
+    subgraph "Incremental Archives"
+        I1["Incremental 1<br/>repo-inc-20250116.tar.gz<br/>Delta: commits ABC..DEF"]
+        I2["Incremental 2<br/>repo-inc-20250123.tar.gz<br/>Delta: commits DEF..GHI"]
+        I3["Incremental 3<br/>repo-inc-20250130.tar.gz<br/>Delta: commits GHI..JKL"]
+    end
+
+    subgraph "Restore Process"
+        R["Restore<br/>Apply: Full + Inc1 + Inc2 + Inc3"]
+    end
+
+    F1 --> I1
+    I1 --> I2
+    I2 --> I3
+    I3 --> R
+
+    style F1 fill:#90EE90
+    style I1 fill:#FFD700
+    style I2 fill:#FFD700
+    style I3 fill:#FFD700
+    style R fill:#87CEEB
 ```
+
+**Archive Types:**
+- **Full Archive**: Complete git bundle with all refs, commits, and LFS objects
+- **Incremental Archive**: Delta bundle containing only new commits/refs since last archive
+- **Manifest**: JSON file describing archive contents, parent references, and metadata
 
 ## Out of Scope (For Initial Release)
 
@@ -230,7 +324,8 @@ A tool to clone and synchronize Git repositories from GitLab (self-hosted or git
 - Package registry syncing
 - Merge request/Pull request state preservation
 - User/permission synchronization
-- Bi-directional sync (GitHub → GitLab)
+- Advanced conflict resolution UI (manual resolution only)
+- Real-time synchronization (scheduled only)
 
 ## Success Criteria
 

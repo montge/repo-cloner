@@ -4,15 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**repo-cloner** is a Python-based tool for cloning and synchronizing Git repositories from GitLab (self-hosted or gitlab.com) to GitHub (Enterprise or github.com). It supports both automated GitHub Actions workflows and manual local execution.
+**repo-cloner** is a universal Python-based tool for cloning and synchronizing Git repositories between GitLab, GitHub, and S3-compatible storage. It supports bidirectional synchronization, air-gap workflows, and both automated GitHub Actions and manual local execution.
 
 **Key Features:**
+- Universal repository synchronization (GitLab ↔ GitHub ↔ S3)
+- Bidirectional sync with conflict detection
 - Full mirror clones with branch, tag, and commit history preservation
 - Git LFS support
-- GitLab group hierarchy mapping to GitHub naming strategies
-- Air-gap environment support (export to S3/cloud storage)
+- Organization/group hierarchy mapping between platforms
+- Air-gap environment support with full and incremental archives
 - Scheduled sync via GitHub Actions or manual CLI execution
 - Handles both cloud (gitlab.com, github.com) and on-premise deployments
+
+**Supported Paths:**
+- GitLab → GitHub, GitHub → GitLab (cross-platform migration)
+- GitLab → GitLab, GitHub → GitHub (instance/org migration)
+- Any platform → S3 (archive), S3 → Any platform (restore)
 
 ## Development Approach
 
@@ -78,21 +85,50 @@ pre-commit run --all-files
 
 ### CLI Usage
 ```bash
-# Clone single repository
+# Clone single repository (any platform to any platform)
 python -m repo_cloner clone \
   --source https://gitlab.example.com/group/repo \
   --target https://github.com/org/repo \
-  --gitlab-token $GITLAB_TOKEN \
-  --github-token $GITHUB_TOKEN
+  --source-token $SOURCE_TOKEN \
+  --target-token $TARGET_TOKEN
 
 # Sync from configuration file
 python -m repo_cloner sync --config config.yml
 
-# Export to archive
-python -m repo_cloner export --config config.yml --output /path/to/archives
+# Bidirectional sync
+python -m repo_cloner sync --config config.yml --bidirectional
 
-# Upload to S3
-python -m repo_cloner upload --archives /path/to/archives --bucket my-bucket
+# Export to full archive
+python -m repo_cloner archive create \
+  --source https://gitlab.example.com/group/repo \
+  --output /path/to/archives \
+  --type full
+
+# Export incremental archive
+python -m repo_cloner archive create \
+  --source https://gitlab.example.com/group/repo \
+  --output /path/to/archives \
+  --type incremental \
+  --base-archive repo-full-20250109.tar.gz
+
+# Upload archives to S3
+python -m repo_cloner archive upload \
+  --archives /path/to/archives \
+  --bucket my-bucket \
+  --prefix backups/
+
+# Restore from S3 archive
+python -m repo_cloner archive restore \
+  --bucket my-bucket \
+  --archive-key backups/repo-full-20250109.tar.gz \
+  --incremental backups/repo-inc-*.tar.gz \
+  --target https://github.com/org/repo \
+  --target-token $GITHUB_TOKEN
+
+# List available archives in S3
+python -m repo_cloner archive list \
+  --bucket my-bucket \
+  --prefix backups/
 ```
 
 ## Key Design Decisions
@@ -172,21 +208,50 @@ def test_clone_mirror_preserves_branches():
 
 ### Configuration Example
 ```yaml
-gitlab:
-  url: https://gitlab.example.com
-  token: ${GITLAB_TOKEN}
+# Universal source/target configuration
+sources:
+  - type: gitlab
+    url: https://gitlab.example.com
+    token: ${GITLAB_TOKEN}
+    groups:
+      - backend
+      - frontend
 
-github:
-  url: https://github.example.com
-  token: ${GITHUB_TOKEN}
+targets:
+  - type: github
+    url: https://github.example.com
+    token: ${GITHUB_TOKEN}
+    organization: myorg
 
-mapping_strategy: flatten
+  - type: s3
+    bucket: my-archives
+    region: us-east-1
+    prefix: repo-backups/
 
-groups:
-  - source: backend
-    target_org: myorg
-    lfs_enabled: true
+# Mapping configuration
+mapping_strategy: flatten  # flatten, prefix, topics, custom
+
+# Sync configuration
+sync:
+  mode: unidirectional  # unidirectional, bidirectional
+  direction: source_to_target  # source_to_target, target_to_source
+  schedule: "0 2 * * *"  # cron format
+  lfs_enabled: true
+  conflict_resolution: fail  # fail, source_wins, target_wins
+
+# Archive configuration
+archive:
+  type: full  # full, incremental
+  include_lfs: true
+  compression: gzip
+  base_archive: repo-full-20250109.tar.gz  # for incremental
+
+# Repository-specific overrides
+repositories:
+  - source: backend/auth-service
+    target: myorg/backend-auth-service
     sync_strategy: mirror
+    archive_type: incremental
 ```
 
 ## Current Status
