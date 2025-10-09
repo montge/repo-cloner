@@ -1,13 +1,11 @@
 """Unit tests for concurrent repository cloning operations."""
 
-import tempfile
 import time
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from repo_cloner.concurrent_cloner import ConcurrentCloner, CloneResult
+from repo_cloner.concurrent_cloner import ConcurrentCloner
 
 
 @pytest.mark.unit
@@ -103,13 +101,10 @@ class TestConcurrentCloner:
         cloner = ConcurrentCloner(max_workers=2)
 
         repos = [
-            {"url": f"https://example.com/repo{i}.git", "path": f"/tmp/repo{i}"}
-            for i in range(10)
+            {"url": f"https://example.com/repo{i}.git", "path": f"/tmp/repo{i}"} for i in range(10)
         ]
 
         # Act
-        active_count = []
-
         def track_active_clones(*args, **kwargs):
             """Track how many clones are running simultaneously."""
             # This would be tracked in production, here we verify max_workers
@@ -208,8 +203,6 @@ class TestConcurrentCloner:
     def test_default_max_workers_is_cpu_count(self):
         """Test that default max_workers equals CPU count."""
         # Arrange & Act
-        cloner = ConcurrentCloner()
-
         # Assert - Should use CPU count (mocked in test)
         with patch("os.cpu_count", return_value=8):
             cloner_with_default = ConcurrentCloner()

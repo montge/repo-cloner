@@ -2,9 +2,8 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import MagicMock, patch
 
-import git
 import pytest
 
 from repo_cloner.large_repo_handler import LargeRepoHandler
@@ -28,11 +27,7 @@ class TestLargeRepoHandler:
                 mock_repo = MagicMock()
                 mock_clone.return_value = mock_repo
 
-                handler.shallow_clone(
-                    source_url,
-                    str(target_path),
-                    depth=1
-                )
+                handler.shallow_clone(source_url, str(target_path), depth=1)
 
                 # Assert - Should pass depth parameter
                 mock_clone.assert_called_once()
@@ -54,11 +49,7 @@ class TestLargeRepoHandler:
                 mock_clone.return_value = mock_repo
 
                 handler.shallow_clone(
-                    source_url,
-                    str(target_path),
-                    depth=1,
-                    single_branch=True,
-                    branch="main"
+                    source_url, str(target_path), depth=1, single_branch=True, branch="main"
                 )
 
                 # Assert - Should pass single-branch flag
@@ -100,9 +91,7 @@ class TestLargeRepoHandler:
                 mock_run.return_value = MagicMock(returncode=0)
 
                 result = handler.partial_clone(
-                    source_url,
-                    str(target_path),
-                    filter_spec="blob:none"
+                    source_url, str(target_path), filter_spec="blob:none"
                 )
 
                 # Assert - Should use --filter flag
@@ -125,11 +114,7 @@ class TestLargeRepoHandler:
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0)
 
-                handler.partial_clone(
-                    source_url,
-                    str(target_path),
-                    filter_spec="blob:limit=1m"
-                )
+                handler.partial_clone(source_url, str(target_path), filter_spec="blob:limit=1m")
 
                 # Assert - Should use blob size filter
                 call_args = mock_run.call_args[0][0]
@@ -146,10 +131,7 @@ class TestLargeRepoHandler:
             # Act
             with patch("subprocess.run") as mock_run:
                 # Mock du output: "524288\t.git"  (512 KB)
-                mock_run.return_value = MagicMock(
-                    returncode=0,
-                    stdout="524288\t.git"
-                )
+                mock_run.return_value = MagicMock(returncode=0, stdout="524288\t.git")
 
                 size_info = handler.get_repo_size(str(repo_path))
 
@@ -164,10 +146,7 @@ class TestLargeRepoHandler:
         handler = LargeRepoHandler()
 
         # Act - Estimate for 1GB repo at 10MB/s
-        estimate = handler.estimate_clone_time(
-            repo_size_mb=1024,
-            network_speed_mbps=10
-        )
+        estimate = handler.estimate_clone_time(repo_size_mb=1024, network_speed_mbps=10)
 
         # Assert - Should calculate reasonable estimate
         assert estimate["estimated_seconds"] > 0
@@ -203,10 +182,7 @@ class TestLargeRepoHandler:
         # Act
         with patch("subprocess.run") as mock_run:
             # Mock git version 2.19+ (supports partial clone)
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout="git version 2.30.0"
-            )
+            mock_run.return_value = MagicMock(returncode=0, stdout="git version 2.30.0")
 
             result = handler.check_partial_clone_support()
 

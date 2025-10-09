@@ -2,7 +2,6 @@
 
 import os
 import subprocess
-from pathlib import Path
 from typing import Any, Dict, List
 
 import git
@@ -24,20 +23,14 @@ class LFSHandler:
         """
         try:
             result = subprocess.run(
-                ["git", "lfs", "version"],
-                capture_output=True,
-                text=True,
-                check=False
+                ["git", "lfs", "version"], capture_output=True, text=True, check=False
             )
             return result.returncode == 0
         except FileNotFoundError:
             return False
 
     def clone_with_lfs(
-        self,
-        source_url: str,
-        target_path: str,
-        fetch_lfs: bool = True
+        self, source_url: str, target_path: str, fetch_lfs: bool = True
     ) -> Dict[str, Any]:
         """
         Clone a repository with LFS support.
@@ -60,11 +53,7 @@ class LFSHandler:
         env["GIT_LFS_SKIP_SMUDGE"] = "1"
 
         # Perform clone
-        git.Repo.clone_from(
-            source_url,
-            target_path,
-            env=env
-        )
+        git.Repo.clone_from(source_url, target_path, env=env)
 
         lfs_fetched = False
         if fetch_lfs:
@@ -72,10 +61,7 @@ class LFSHandler:
             self.fetch_lfs_objects(target_path)
             lfs_fetched = True
 
-        return {
-            "success": True,
-            "lfs_objects_fetched": lfs_fetched
-        }
+        return {"success": True, "lfs_objects_fetched": lfs_fetched}
 
     def fetch_lfs_objects(self, repo_path: str) -> None:
         """
@@ -84,12 +70,7 @@ class LFSHandler:
         Args:
             repo_path: Path to local repository
         """
-        subprocess.run(
-            ["git", "lfs", "pull"],
-            cwd=repo_path,
-            check=True,
-            capture_output=True
-        )
+        subprocess.run(["git", "lfs", "pull"], cwd=repo_path, check=True, capture_output=True)
 
     def get_lfs_info(self, repo_path: str) -> Dict[str, Any]:
         """
@@ -104,18 +85,11 @@ class LFSHandler:
             - lfs_files: List[str]
         """
         result = subprocess.run(
-            ["git", "lfs", "ls-files"],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            check=False
+            ["git", "lfs", "ls-files"], cwd=repo_path, capture_output=True, text=True, check=False
         )
 
         if result.returncode != 0:
-            return {
-                "lfs_file_count": 0,
-                "lfs_files": []
-            }
+            return {"lfs_file_count": 0, "lfs_files": []}
 
         # Parse output: each line is like "abc123 * filename.ext"
         lfs_files: List[str] = []
@@ -126,7 +100,4 @@ class LFSHandler:
                     filename = " ".join(parts[2:])  # Handle filenames with spaces
                     lfs_files.append(filename)
 
-        return {
-            "lfs_file_count": len(lfs_files),
-            "lfs_files": lfs_files
-        }
+        return {"lfs_file_count": len(lfs_files), "lfs_files": lfs_files}

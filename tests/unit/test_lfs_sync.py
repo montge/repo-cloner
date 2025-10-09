@@ -25,7 +25,7 @@ class TestLFSSync:
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(
                     returncode=0,
-                    stdout="Downloading file1.psd (5 MB)\nDownloading file2.zip (10 MB)\n"
+                    stdout="Downloading file1.psd (5 MB)\nDownloading file2.zip (10 MB)\n",
                 )
 
                 result = sync.sync_lfs_objects(str(repo_path))
@@ -83,20 +83,17 @@ class TestLFSSync:
         # Arrange
         sync = LFSSync()
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            repo_path = Path(tmpdir)
+        # Mock two different states
+        old_lfs_files = ["file1.psd", "file2.zip"]
+        new_lfs_files = ["file1.psd", "file2.zip", "file3.bin"]
 
-            # Mock two different states
-            old_lfs_files = ["file1.psd", "file2.zip"]
-            new_lfs_files = ["file1.psd", "file2.zip", "file3.bin"]
+        # Act
+        changes = sync.detect_lfs_changes(old_lfs_files, new_lfs_files)
 
-            # Act
-            changes = sync.detect_lfs_changes(old_lfs_files, new_lfs_files)
-
-            # Assert - Should detect new file
-            assert changes["added"] == ["file3.bin"]
-            assert changes["removed"] == []
-            assert changes["unchanged"] == ["file1.psd", "file2.zip"]
+        # Assert - Should detect new file
+        assert changes["added"] == ["file3.bin"]
+        assert changes["removed"] == []
+        assert changes["unchanged"] == ["file1.psd", "file2.zip"]
 
     def test_sync_lfs_detects_removed_objects(self):
         """Test detection of LFS objects that were removed."""
@@ -147,8 +144,7 @@ class TestLFSSync:
             with patch("subprocess.run") as mock_run:
                 # Mock du output for .git/lfs directory
                 mock_run.return_value = MagicMock(
-                    returncode=0,
-                    stdout="524288\t.git/lfs"  # 512 KB in bytes
+                    returncode=0, stdout="524288\t.git/lfs"  # 512 KB in bytes
                 )
 
                 size = sync.get_lfs_storage_size(str(repo_path))
@@ -169,10 +165,7 @@ class TestLFSSync:
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value = MagicMock(returncode=0, stdout="")
 
-                sync.sync_lfs_objects(
-                    str(repo_path),
-                    include_patterns=["*.psd"]
-                )
+                sync.sync_lfs_objects(str(repo_path), include_patterns=["*.psd"])
 
                 # Assert - Should use --include flag
                 call_args = mock_run.call_args[0][0]

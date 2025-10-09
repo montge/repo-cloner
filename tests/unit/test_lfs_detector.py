@@ -60,11 +60,7 @@ class TestLFSDetector:
             gitattributes = repo_path / ".gitattributes"
 
             # Write .gitattributes WITHOUT LFS patterns
-            gitattributes.write_text(
-                "* text=auto\n"
-                "*.py text\n"
-                "*.sh text eol=lf\n"
-            )
+            gitattributes.write_text("* text=auto\n" "*.py text\n" "*.sh text eol=lf\n")
 
             detector = LFSDetector()
 

@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import git
 import pytest
 
 from repo_cloner.lfs_handler import LFSHandler
@@ -46,8 +45,7 @@ class TestLFSHandler:
             target_path = Path(tmpdir) / "test-repo"
 
             # Act - Mock git clone to verify flags
-            with patch("git.Repo.clone_from") as mock_clone, \
-                 patch("subprocess.run") as mock_run:
+            with patch("git.Repo.clone_from") as mock_clone, patch("subprocess.run") as mock_run:
                 mock_repo = MagicMock()
                 mock_clone.return_value = mock_repo
                 mock_run.return_value = MagicMock(returncode=0)
@@ -92,18 +90,13 @@ class TestLFSHandler:
             target_path = Path(tmpdir) / "lfs-repo"
 
             # Act
-            with patch("git.Repo.clone_from") as mock_clone, \
-                 patch("subprocess.run") as mock_run:
+            with patch("git.Repo.clone_from") as mock_clone, patch("subprocess.run") as mock_run:
 
                 mock_repo = MagicMock()
                 mock_clone.return_value = mock_repo
                 mock_run.return_value = MagicMock(returncode=0)
 
-                result = handler.clone_with_lfs(
-                    source_url,
-                    str(target_path),
-                    fetch_lfs=True
-                )
+                result = handler.clone_with_lfs(source_url, str(target_path), fetch_lfs=True)
 
                 # Assert - Both clone and LFS pull executed
                 assert mock_clone.called
@@ -121,16 +114,13 @@ class TestLFSHandler:
             target_path = Path(tmpdir) / "lfs-repo"
 
             # Act
-            with patch("git.Repo.clone_from") as mock_clone, \
-                 patch("subprocess.run") as mock_run:
+            with patch("git.Repo.clone_from") as mock_clone, patch("subprocess.run") as mock_run:
 
                 mock_repo = MagicMock()
                 mock_clone.return_value = mock_repo
 
                 result = handler.clone_with_lfs(
-                    source_url,
-                    str(target_path),
-                    fetch_lfs=False  # Skip LFS fetch
+                    source_url, str(target_path), fetch_lfs=False  # Skip LFS fetch
                 )
 
                 # Assert - Clone called but NOT lfs pull
@@ -151,8 +141,7 @@ class TestLFSHandler:
             with patch("subprocess.run") as mock_run:
                 # Mock git lfs ls-files output
                 mock_run.return_value = MagicMock(
-                    returncode=0,
-                    stdout="abc123 * file1.psd\ndef456 * file2.zip\n"
+                    returncode=0, stdout="abc123 * file1.psd\ndef456 * file2.zip\n"
                 )
 
                 info = handler.get_lfs_info(str(repo_path))
