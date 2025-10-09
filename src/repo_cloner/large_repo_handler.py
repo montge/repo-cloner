@@ -21,7 +21,7 @@ class LargeRepoHandler:
         target_path: str,
         depth: int = 1,
         single_branch: bool = False,
-        branch: Optional[str] = None
+        branch: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Perform shallow clone with limited history depth.
@@ -37,9 +37,7 @@ class LargeRepoHandler:
             Dictionary with clone results:
             - success: bool
         """
-        kwargs = {
-            "depth": depth
-        }
+        kwargs = {"depth": depth}
 
         if single_branch:
             kwargs["single_branch"] = True
@@ -49,9 +47,7 @@ class LargeRepoHandler:
 
         git.Repo.clone_from(source_url, target_path, **kwargs)
 
-        return {
-            "success": True
-        }
+        return {"success": True}
 
     def unshallow(self, repo_path: str) -> Dict[str, Any]:
         """
@@ -65,21 +61,13 @@ class LargeRepoHandler:
             - success: bool
         """
         result = subprocess.run(
-            ["git", "fetch", "--unshallow"],
-            cwd=repo_path,
-            capture_output=True,
-            check=False
+            ["git", "fetch", "--unshallow"], cwd=repo_path, capture_output=True, check=False
         )
 
-        return {
-            "success": result.returncode == 0
-        }
+        return {"success": result.returncode == 0}
 
     def partial_clone(
-        self,
-        source_url: str,
-        target_path: str,
-        filter_spec: str = "blob:none"
+        self, source_url: str, target_path: str, filter_spec: str = "blob:none"
     ) -> Dict[str, Any]:
         """
         Perform partial clone that skips certain objects initially.
@@ -99,19 +87,12 @@ class LargeRepoHandler:
             - success: bool
         """
         result = subprocess.run(
-            [
-                "git", "clone",
-                f"--filter={filter_spec}",
-                source_url,
-                target_path
-            ],
+            ["git", "clone", f"--filter={filter_spec}", source_url, target_path],
             capture_output=True,
-            check=False
+            check=False,
         )
 
-        return {
-            "success": result.returncode == 0
-        }
+        return {"success": result.returncode == 0}
 
     def get_repo_size(self, repo_path: str) -> Dict[str, Any]:
         """
@@ -128,10 +109,7 @@ class LargeRepoHandler:
         git_dir = Path(repo_path) / ".git"
 
         result = subprocess.run(
-            ["du", "-s", str(git_dir)],
-            capture_output=True,
-            text=True,
-            check=False
+            ["du", "-s", str(git_dir)], capture_output=True, text=True, check=False
         )
 
         if result.returncode == 0:
@@ -140,21 +118,11 @@ class LargeRepoHandler:
             size_bytes = size_kb * 1024
             size_mb = size_bytes / (1024 * 1024)
 
-            return {
-                "total_size_bytes": size_bytes,
-                "total_size_mb": round(size_mb, 2)
-            }
+            return {"total_size_bytes": size_bytes, "total_size_mb": round(size_mb, 2)}
 
-        return {
-            "total_size_bytes": 0,
-            "total_size_mb": 0.0
-        }
+        return {"total_size_bytes": 0, "total_size_mb": 0.0}
 
-    def estimate_clone_time(
-        self,
-        repo_size_mb: int,
-        network_speed_mbps: float
-    ) -> Dict[str, Any]:
+    def estimate_clone_time(self, repo_size_mb: int, network_speed_mbps: float) -> Dict[str, Any]:
         """
         Estimate clone time based on repo size and network speed.
 
@@ -184,7 +152,7 @@ class LargeRepoHandler:
         return {
             "estimated_seconds": estimated_seconds,
             "estimated_minutes": estimated_minutes,
-            "estimated_human_readable": human_readable
+            "estimated_human_readable": human_readable,
         }
 
     def optimize_for_bandwidth(self, repo_path: str) -> Dict[str, Any]:
@@ -205,9 +173,7 @@ class LargeRepoHandler:
             config.set_value("core", "compression", "9")
             config.set_value("pack", "compression", "9")
 
-        return {
-            "success": True
-        }
+        return {"success": True}
 
     def check_partial_clone_support(self) -> Dict[str, Any]:
         """
@@ -218,12 +184,7 @@ class LargeRepoHandler:
             - supported: bool
             - version: str
         """
-        result = subprocess.run(
-            ["git", "--version"],
-            capture_output=True,
-            text=True,
-            check=False
-        )
+        result = subprocess.run(["git", "--version"], capture_output=True, text=True, check=False)
 
         if result.returncode == 0:
             # Parse: "git version 2.30.0"
@@ -235,15 +196,9 @@ class LargeRepoHandler:
                 # Partial clone support added in Git 2.19
                 supported = int(major) > 2 or (int(major) == 2 and int(minor) >= 19)
 
-                return {
-                    "supported": supported,
-                    "version": version
-                }
+                return {"supported": supported, "version": version}
 
-        return {
-            "supported": False,
-            "version": "unknown"
-        }
+        return {"supported": False, "version": "unknown"}
 
     def deepen(self, repo_path: str, depth: int) -> Dict[str, Any]:
         """
@@ -258,12 +213,7 @@ class LargeRepoHandler:
             - success: bool
         """
         result = subprocess.run(
-            ["git", "fetch", f"--depth={depth}"],
-            cwd=repo_path,
-            capture_output=True,
-            check=False
+            ["git", "fetch", f"--depth={depth}"], cwd=repo_path, capture_output=True, check=False
         )
 
-        return {
-            "success": result.returncode == 0
-        }
+        return {"success": result.returncode == 0}

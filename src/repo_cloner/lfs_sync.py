@@ -13,10 +13,7 @@ class LFSSync:
         pass
 
     def sync_lfs_objects(
-        self,
-        repo_path: str,
-        recent: bool = False,
-        include_patterns: Optional[List[str]] = None
+        self, repo_path: str, recent: bool = False, include_patterns: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Sync LFS objects for a repository, optionally fetching only recent changes.
@@ -40,13 +37,7 @@ class LFSSync:
             for pattern in include_patterns:
                 cmd.extend(["--include", pattern])
 
-        result = subprocess.run(
-            cmd,
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            check=False
-        )
+        result = subprocess.run(cmd, cwd=repo_path, capture_output=True, text=True, check=False)
 
         # Count objects fetched from output
         objects_fetched = 0
@@ -56,10 +47,7 @@ class LFSSync:
                 if "Downloading" in line:
                     objects_fetched += 1
 
-        return {
-            "success": result.returncode == 0,
-            "objects_fetched": objects_fetched
-        }
+        return {"success": result.returncode == 0, "objects_fetched": objects_fetched}
 
     def prune_lfs_objects(self, repo_path: str) -> Dict[str, Any]:
         """
@@ -73,20 +61,13 @@ class LFSSync:
             - success: bool
         """
         result = subprocess.run(
-            ["git", "lfs", "prune"],
-            cwd=repo_path,
-            capture_output=True,
-            check=False
+            ["git", "lfs", "prune"], cwd=repo_path, capture_output=True, check=False
         )
 
-        return {
-            "success": result.returncode == 0
-        }
+        return {"success": result.returncode == 0}
 
     def detect_lfs_changes(
-        self,
-        old_lfs_files: List[str],
-        new_lfs_files: List[str]
+        self, old_lfs_files: List[str], new_lfs_files: List[str]
     ) -> Dict[str, List[str]]:
         """
         Detect changes between two sets of LFS files.
@@ -108,11 +89,7 @@ class LFSSync:
         removed = sorted(list(old_set - new_set))
         unchanged = sorted(list(old_set & new_set))
 
-        return {
-            "added": added,
-            "removed": removed,
-            "unchanged": unchanged
-        }
+        return {"added": added, "removed": removed, "unchanged": unchanged}
 
     def checkout_lfs_objects(self, repo_path: str) -> Dict[str, Any]:
         """
@@ -126,15 +103,10 @@ class LFSSync:
             - success: bool
         """
         result = subprocess.run(
-            ["git", "lfs", "checkout"],
-            cwd=repo_path,
-            capture_output=True,
-            check=False
+            ["git", "lfs", "checkout"], cwd=repo_path, capture_output=True, check=False
         )
 
-        return {
-            "success": result.returncode == 0
-        }
+        return {"success": result.returncode == 0}
 
     def get_lfs_storage_size(self, repo_path: str) -> int:
         """
@@ -149,10 +121,7 @@ class LFSSync:
         lfs_path = Path(repo_path) / ".git" / "lfs"
 
         result = subprocess.run(
-            ["du", "-s", str(lfs_path)],
-            capture_output=True,
-            text=True,
-            check=False
+            ["du", "-s", str(lfs_path)], capture_output=True, text=True, check=False
         )
 
         if result.returncode == 0:

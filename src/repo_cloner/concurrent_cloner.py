@@ -38,7 +38,7 @@ class ConcurrentCloner:
     def clone_multiple(
         self,
         repos: List[Dict[str, str]],
-        progress_callback: Optional[Callable[[str, str], None]] = None
+        progress_callback: Optional[Callable[[str, str], None]] = None,
     ) -> List[CloneResult]:
         """
         Clone multiple repositories concurrently.
@@ -55,8 +55,7 @@ class ConcurrentCloner:
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit all clone tasks
             future_to_repo = {
-                executor.submit(self._clone_single, repo, progress_callback): repo
-                for repo in repos
+                executor.submit(self._clone_single, repo, progress_callback): repo for repo in repos
             }
 
             # Collect results as they complete
@@ -67,20 +66,20 @@ class ConcurrentCloner:
                     results.append(result)
                 except Exception as exc:
                     # Should not happen since _clone_single catches exceptions
-                    results.append(CloneResult(
-                        url=repo["url"],
-                        path=repo["path"],
-                        success=False,
-                        duration=0.0,
-                        error=str(exc)
-                    ))
+                    results.append(
+                        CloneResult(
+                            url=repo["url"],
+                            path=repo["path"],
+                            success=False,
+                            duration=0.0,
+                            error=str(exc),
+                        )
+                    )
 
         return results
 
     def _clone_single(
-        self,
-        repo: Dict[str, str],
-        progress_callback: Optional[Callable[[str, str], None]] = None
+        self, repo: Dict[str, str], progress_callback: Optional[Callable[[str, str], None]] = None
     ) -> CloneResult:
         """
         Clone a single repository.
@@ -107,12 +106,7 @@ class ConcurrentCloner:
             if progress_callback:
                 progress_callback(url, "completed")
 
-            return CloneResult(
-                url=url,
-                path=path,
-                success=True,
-                duration=duration
-            )
+            return CloneResult(url=url, path=path, success=True, duration=duration)
 
         except Exception as exc:
             duration = time.time() - start_time
@@ -120,19 +114,9 @@ class ConcurrentCloner:
             if progress_callback:
                 progress_callback(url, "failed")
 
-            return CloneResult(
-                url=url,
-                path=path,
-                success=False,
-                duration=duration,
-                error=str(exc)
-            )
+            return CloneResult(url=url, path=path, success=False, duration=duration, error=str(exc))
 
-    def clone_with_retry(
-        self,
-        repo: Dict[str, str],
-        max_retries: int = 3
-    ) -> CloneResult:
+    def clone_with_retry(self, repo: Dict[str, str], max_retries: int = 3) -> CloneResult:
         """
         Clone a repository with retry logic.
 
@@ -155,27 +139,16 @@ class ConcurrentCloner:
                 git.Repo.clone_from(url, path)
                 duration = time.time() - start_time
 
-                return CloneResult(
-                    url=url,
-                    path=path,
-                    success=True,
-                    duration=duration
-                )
+                return CloneResult(url=url, path=path, success=True, duration=duration)
 
             except Exception as exc:
                 last_error = str(exc)
                 # Wait before retry (exponential backoff)
                 if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
 
         # All retries failed
-        return CloneResult(
-            url=url,
-            path=path,
-            success=False,
-            duration=0.0,
-            error=last_error
-        )
+        return CloneResult(url=url, path=path, success=False, duration=0.0, error=last_error)
 
     def get_summary(self, results: List[CloneResult]) -> Dict[str, Any]:
         """
@@ -201,5 +174,5 @@ class ConcurrentCloner:
             "total": total,
             "successful": successful,
             "failed": failed,
-            "success_rate": round(success_rate, 2)
+            "success_rate": round(success_rate, 2),
         }
