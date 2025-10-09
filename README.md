@@ -158,13 +158,14 @@ Nexus, Artifactory, JFrog, Azure Artifacts, Verdaccio, Athens, Satis
 
 ✅ **Sprint 0 Complete** - Project setup and foundation
 ✅ **Sprint 1 Complete** - Core Git operations (clone, push, auth, CLI)
-🚧 **Sprint 2-9 In Progress** - See [ROADMAP.md](ROADMAP.md) for detailed plan
+✅ **Sprint 2 Complete** - GitLab & GitHub API integration (discovery, metadata mapping)
+✅ **Sprint 3 Complete** - Synchronization Engine (bidirectional sync, conflict detection)
+🚧 **Sprint 4-9 In Progress** - See [ROADMAP.md](ROADMAP.md) for detailed plan
 
-**Current Features (Sprint 1):**
-- GitLab → GitHub single repository sync
-- Token-based authentication (env vars)
-- Dry-run mode for safe testing
-- CLI with `repo-cloner sync` command
+**Current Features (Sprints 1-3):**
+- **Sprint 1**: GitLab → GitHub sync, token auth, dry-run mode, CLI
+- **Sprint 2**: Repository discovery via APIs, group/org mapping, metadata preservation (descriptions, topics)
+- **Sprint 3**: Unidirectional & bidirectional sync, conflict detection, state persistence, change tracking
 
 ## Contributing
 
