@@ -594,34 +594,271 @@ class S3Backend(StorageBackend):
 
 
 class AzureBlobBackend(StorageBackend):
-    """Azure Blob Storage backend with region selection."""
+    """Azure Blob Storage backend with region selection.
+
+    Uses azure-storage-blob SDK for operations.
+    """
 
     def __init__(
         self,
         container: str,
-        account_name: str,
-        region: str,
-        connection_string: Optional[str] = None,
+        account_name: Optional[str] = None,
         account_key: Optional[str] = None,
+        connection_string: Optional[str] = None,
+        prefix: str = "",
     ):
-        raise NotImplementedError("AzureBlobBackend to be implemented in Phase 2")
+        """Initialize Azure Blob Storage backend.
+
+        Args:
+            container: Azure blob container name
+            account_name: Storage account name (required if not using connection_string)
+            account_key: Storage account key (required if not using connection_string)
+            connection_string: Full connection string (alternative to account_name/key)
+            prefix: Optional blob name prefix for all operations
+        """
+        from azure.storage.blob import BlobServiceClient
+
+        self.container = container
+        self.account_name = account_name
+        self.account_key = account_key
+        self.connection_string = connection_string
+        self.prefix = prefix
+
+        # Create BlobServiceClient
+        if connection_string:
+            self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        elif account_name and account_key:
+            account_url = f"https://{account_name}.blob.core.windows.net"
+            self.blob_service_client = BlobServiceClient(
+                account_url=account_url, credential=account_key
+            )
+        else:
+            raise ValueError(
+                "Must provide either connection_string or both account_name and account_key"
+            )
+
+    def _full_blob_name(self, remote_key: str) -> str:
+        """Prepend prefix to remote key if configured."""
+        if self.prefix:
+            return f"{self.prefix}{remote_key}"
+        return remote_key
 
     def upload_archive(
         self, local_path: Path, remote_key: str, metadata: Optional[Dict[str, Any]] = None
     ) -> ArchiveMetadata:
-        raise NotImplementedError()
+        """Upload archive to Azure Blob Storage.
+
+        Args:
+            local_path: Local file to upload
+            remote_key: Blob name (will be prefixed if prefix configured)
+            metadata: Optional metadata (stored as blob metadata)
+
+        Returns:
+            ArchiveMetadata with upload details
+        """
+        import hashlib
+        from datetime import datetime, timezone
+
+        # Validate source exists
+        local_path = Path(local_path)
+        if not local_path.exists():
+            raise FileNotFoundError(f"Source file not found: {local_path}")
+
+        # Calculate full blob name
+        full_blob_name = self._full_blob_name(remote_key)
+
+        # Calculate checksum
+        sha256_hash = hashlib.sha256()
+        with open(local_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha256_hash.update(chunk)
+        checksum = sha256_hash.hexdigest()
+
+        # Get blob client
+        blob_client = self.blob_service_client.get_blob_client(
+            container=self.container, blob=full_blob_name
+        )
+
+        # Upload blob
+        with open(local_path, "rb") as data:
+            blob_client.upload_blob(data, overwrite=True)
+
+        # Set metadata if provided
+        if metadata:
+            # Convert all values to strings (Azure requirement)
+            metadata_str = {k: str(v) for k, v in metadata.items()}
+            blob_client.set_blob_metadata(metadata=metadata_str)
+
+        # Get blob properties
+        properties = blob_client.get_blob_properties()
+        size_bytes = properties.size
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        return ArchiveMetadata(
+            key=full_blob_name,
+            filename=Path(remote_key).name,
+            size_bytes=size_bytes,
+            timestamp=timestamp,
+            checksum_sha256=checksum,
+            archive_type=metadata.get("archive_type") if metadata else None,
+            repository_name=metadata.get("repository_name") if metadata else None,
+            metadata=metadata,
+        )
 
     def download_archive(self, remote_key: str, local_path: Path) -> None:
-        raise NotImplementedError()
+        """Download archive from Azure Blob Storage.
+
+        Args:
+            remote_key: Blob name (will be prefixed if prefix configured)
+            local_path: Destination file path
+        """
+        from azure.core.exceptions import ResourceNotFoundError
+
+        full_blob_name = self._full_blob_name(remote_key)
+
+        # Get blob client
+        blob_client = self.blob_service_client.get_blob_client(
+            container=self.container, blob=full_blob_name
+        )
+
+        # Check if blob exists
+        try:
+            downloader = blob_client.download_blob()
+        except ResourceNotFoundError:
+            raise KeyError(f"Archive not found: {remote_key}")
+
+        # Create parent directories
+        local_path = Path(local_path)
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Download to file
+        with open(local_path, "wb") as f:
+            f.write(downloader.readall())
 
     def list_archives(self, prefix: Optional[str] = None) -> List[ArchiveMetadata]:
-        raise NotImplementedError()
+        """List archives in Azure Blob Storage container.
+
+        Args:
+            prefix: Optional prefix filter (in addition to configured prefix)
+
+        Returns:
+            List of ArchiveMetadata objects
+        """
+        archives = []
+
+        # Combine configured prefix with filter prefix
+        list_prefix = self.prefix if self.prefix else ""
+        if prefix:
+            list_prefix = f"{list_prefix}{prefix}"
+
+        # Get container client
+        container_client = self.blob_service_client.get_container_client(self.container)
+
+        # List blobs with prefix
+        blob_list = container_client.list_blobs(name_starts_with=list_prefix if list_prefix else None)
+
+        for blob in blob_list:
+            # Skip if not a .tar.gz file
+            if not blob.name.endswith(".tar.gz"):
+                continue
+
+            # Extract metadata from blob metadata
+            meta_dict = blob.metadata if blob.metadata else {}
+            archive_type = meta_dict.get("archive_type")
+            repository_name = meta_dict.get("repository_name")
+            checksum_sha256 = meta_dict.get("checksum_sha256")
+
+            # Create metadata object
+            archives.append(
+                ArchiveMetadata(
+                    key=blob.name,
+                    filename=Path(blob.name).name,
+                    size_bytes=blob.size,
+                    timestamp=blob.last_modified.isoformat(),
+                    checksum_sha256=checksum_sha256,
+                    archive_type=archive_type,
+                    repository_name=repository_name,
+                    metadata=meta_dict if meta_dict else None,
+                )
+            )
+
+        return archives
 
     def delete_archive(self, remote_key: str) -> None:
-        raise NotImplementedError()
+        """Delete archive from Azure Blob Storage.
+
+        Args:
+            remote_key: Blob name (will be prefixed if prefix configured)
+        """
+        from azure.core.exceptions import ResourceNotFoundError
+
+        full_blob_name = self._full_blob_name(remote_key)
+
+        # Get blob client
+        blob_client = self.blob_service_client.get_blob_client(
+            container=self.container, blob=full_blob_name
+        )
+
+        # Delete blob
+        try:
+            blob_client.delete_blob()
+        except ResourceNotFoundError:
+            raise KeyError(f"Archive not found: {remote_key}")
 
     def archive_exists(self, remote_key: str) -> bool:
-        raise NotImplementedError()
+        """Check if archive exists in Azure Blob Storage.
+
+        Args:
+            remote_key: Blob name (will be prefixed if prefix configured)
+
+        Returns:
+            True if blob exists, False otherwise
+        """
+        full_blob_name = self._full_blob_name(remote_key)
+
+        # Get blob client
+        blob_client = self.blob_service_client.get_blob_client(
+            container=self.container, blob=full_blob_name
+        )
+
+        # Check existence
+        return blob_client.exists()
+
+    def get_archive_url(self, remote_key: str) -> Optional[str]:
+        """Generate SAS URL for Azure blob.
+
+        Args:
+            remote_key: Blob name (will be prefixed if prefix configured)
+
+        Returns:
+            SAS URL valid for 1 hour
+        """
+        from datetime import datetime, timedelta, timezone
+
+        from azure.storage.blob import BlobSasPermissions, generate_blob_sas
+
+        full_blob_name = self._full_blob_name(remote_key)
+
+        # Get blob client
+        blob_client = self.blob_service_client.get_blob_client(
+            container=self.container, blob=full_blob_name
+        )
+
+        # Generate SAS token (requires account_key)
+        if not self.account_key:
+            # Cannot generate SAS without account key
+            return blob_client.url
+
+        sas_token = generate_blob_sas(
+            account_name=self.account_name,
+            container_name=self.container,
+            blob_name=full_blob_name,
+            account_key=self.account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+
+        return f"{blob_client.url}?{sas_token}"
 
 
 class GCSBackend(StorageBackend):
