@@ -667,6 +667,92 @@ docker-compose -f docker-compose.test.yml down
 
 ---
 
+### Sprint 6 Progress Tracker
+
+**Current Status: 🟡 IN PROGRESS**
+
+#### ✅ Completed (2025-10-10)
+
+**Phase 1: Core Archive Functionality (12/12 tests passing)**
+
+1. **Full Archive Creation** (6 tests - ✅ COMPLETE)
+   - File: `src/repo_cloner/archive_manager.py` (384 lines)
+   - File: `tests/unit/test_archive_manager.py` (240 lines)
+   - Implementation:
+     * `create_full_archive()` method with git bundle (--all refs)
+     * Archive naming: `repo-name-full-YYYYMMDD-HHMMSS.tar.gz`
+     * JSON manifest with metadata (timestamp, commit SHA, remote URL)
+     * tar.gz compression with timezone-aware datetime
+     * Automatic output directory creation
+     * Input validation (repository path exists)
+   - Coverage: 98% for archive creation
+   - Commit: `9838793` - "Sprint 6: Add full archive creation with git bundles"
+
+2. **Incremental Archive Support** (6 tests - ✅ COMPLETE)
+   - File: `tests/unit/test_incremental_archive.py` (347 lines)
+   - Implementation:
+     * `create_incremental_archive()` method with parent reference tracking
+     * `restore_from_archive_chain()` method for multi-level chain reconstruction
+     * Parent manifest extraction to determine base commit
+     * Commit range metadata (from/to SHAs)
+     * Self-contained bundles using `--all` for reliability
+     * Archive naming: `repo-name-incremental-YYYYMMDD-HHMMSS.tar.gz`
+     * Validation: parent must exist, first archive must be full
+   - Coverage: 82% overall for archive_manager.py
+   - Commit: `03b673b` - "Sprint 6: Add incremental archive support with chain reconstruction"
+
+**Test Summary:**
+- Total Tests: 12/12 passing (100%)
+- Code Quality: All checks passing (black, isort, flake8, mypy)
+- Archive Manager Coverage: 82%
+- No deprecation warnings
+
+**Archive Chain Example:**
+```
+archives/
+├── repo-full-20251010-120000.tar.gz        (base: commit A)
+├── repo-incremental-20251010-130000.tar.gz (A → B, parent: full)
+└── repo-incremental-20251010-140000.tar.gz (B → C, parent: incr1)
+```
+
+**Manifest Structure (Incremental):**
+```json
+{
+  "type": "incremental",
+  "parent_archive": "repo-full-20251010-120000.tar.gz",
+  "commit_range": {
+    "from": "5b22966...",  // Base commit SHA
+    "to": "a9aa57c..."     // Current HEAD SHA
+  },
+  "repository": { "head_sha": "...", "name": "...", ... },
+  "archive": { "filename": "...", ... }
+}
+```
+
+#### 🔜 Next: Storage Backend Abstraction
+
+**Phase 2: Storage Backends (0/16 tests)**
+- [ ] Design `StorageBackend` abstract base class
+- [ ] Implement `LocalFilesystemBackend`
+- [ ] Implement `S3Backend` with region selection (boto3)
+- [ ] Implement `AzureBlobBackend` with region selection (azure-storage-blob)
+- [ ] Implement `GCSBackend` with location selection (google-cloud-storage)
+- [ ] Implement `OCIBackend` with namespace and region (oci)
+- [ ] Implement `S3CompatibleBackend` (MinIO, Ceph, etc.)
+- [ ] Test uploads/downloads for each backend
+- [ ] Implement unified archive listing across backends
+- [ ] Add authentication configuration per backend
+
+**Phase 3: Advanced Features (0/4 tests)**
+- [ ] LFS object bundling with checksums
+- [ ] Archive verification workflows
+- [ ] Archive retention policies
+- [ ] CLI commands: `archive create`, `archive restore`, `archive upload`, `archive download`, `archive list`
+
+**Resume Point:** Start with storage backend interface design and LocalFilesystemBackend implementation
+
+---
+
 ## Sprint 7: GitHub Actions Integration & Scheduling (Week 15-16)
 
 ### Goals
