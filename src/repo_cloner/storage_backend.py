@@ -862,33 +862,246 @@ class AzureBlobBackend(StorageBackend):
 
 
 class GCSBackend(StorageBackend):
-    """Google Cloud Storage backend with location selection."""
+    """Google Cloud Storage backend with location selection.
+
+    Uses google-cloud-storage SDK for operations.
+    """
 
     def __init__(
         self,
         bucket: str,
-        location: str,
-        service_account_json: Optional[str] = None,
         project_id: Optional[str] = None,
+        service_account_json: Optional[str] = None,
+        prefix: str = "",
     ):
-        raise NotImplementedError("GCSBackend to be implemented in Phase 2")
+        """Initialize Google Cloud Storage backend.
+
+        Args:
+            bucket: GCS bucket name
+            project_id: GCP project ID (optional, can be inferred from credentials)
+            service_account_json: Path to service account JSON file (optional, uses ADC if not provided)
+            prefix: Optional blob name prefix for all operations
+        """
+        from google.cloud import storage
+
+        self.bucket_name = bucket
+        self.project_id = project_id
+        self.service_account_json = service_account_json
+        self.prefix = prefix
+
+        # Create storage client
+        if service_account_json:
+            self.storage_client = storage.Client.from_service_account_json(
+                service_account_json, project=project_id
+            )
+        elif project_id:
+            self.storage_client = storage.Client(project=project_id)
+        else:
+            # Use Application Default Credentials (ADC)
+            self.storage_client = storage.Client()
+
+    def _full_blob_name(self, remote_key: str) -> str:
+        """Prepend prefix to remote key if configured."""
+        if self.prefix:
+            return f"{self.prefix}{remote_key}"
+        return remote_key
 
     def upload_archive(
         self, local_path: Path, remote_key: str, metadata: Optional[Dict[str, Any]] = None
     ) -> ArchiveMetadata:
-        raise NotImplementedError()
+        """Upload archive to Google Cloud Storage.
+
+        Args:
+            local_path: Local file to upload
+            remote_key: Blob name (will be prefixed if prefix configured)
+            metadata: Optional metadata (stored as blob metadata)
+
+        Returns:
+            ArchiveMetadata with upload details
+        """
+        import hashlib
+        from datetime import datetime, timezone
+
+        # Validate source exists
+        local_path = Path(local_path)
+        if not local_path.exists():
+            raise FileNotFoundError(f"Source file not found: {local_path}")
+
+        # Calculate full blob name
+        full_blob_name = self._full_blob_name(remote_key)
+
+        # Calculate checksum
+        sha256_hash = hashlib.sha256()
+        with open(local_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha256_hash.update(chunk)
+        checksum = sha256_hash.hexdigest()
+
+        # Get bucket and blob
+        bucket = self.storage_client.bucket(self.bucket_name)
+        blob = bucket.blob(full_blob_name)
+
+        # Set metadata if provided
+        if metadata:
+            blob.metadata = metadata
+
+        # Upload file
+        blob.upload_from_filename(str(local_path))
+
+        # Patch metadata if it was set (GCS requires separate call after upload)
+        if metadata:
+            blob.patch()
+
+        # Get blob size
+        size_bytes = blob.size
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        return ArchiveMetadata(
+            key=full_blob_name,
+            filename=Path(remote_key).name,
+            size_bytes=size_bytes,
+            timestamp=timestamp,
+            checksum_sha256=checksum,
+            archive_type=metadata.get("archive_type") if metadata else None,
+            repository_name=metadata.get("repository_name") if metadata else None,
+            metadata=metadata,
+        )
 
     def download_archive(self, remote_key: str, local_path: Path) -> None:
-        raise NotImplementedError()
+        """Download archive from Google Cloud Storage.
+
+        Args:
+            remote_key: Blob name (will be prefixed if prefix configured)
+            local_path: Destination file path
+        """
+        full_blob_name = self._full_blob_name(remote_key)
+
+        # Get bucket and blob
+        bucket = self.storage_client.bucket(self.bucket_name)
+        blob = bucket.blob(full_blob_name)
+
+        # Check if blob exists
+        if not blob.exists():
+            raise KeyError(f"Archive not found: {remote_key}")
+
+        # Create parent directories
+        local_path = Path(local_path)
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Download to file
+        blob.download_to_filename(str(local_path))
 
     def list_archives(self, prefix: Optional[str] = None) -> List[ArchiveMetadata]:
-        raise NotImplementedError()
+        """List archives in Google Cloud Storage bucket.
+
+        Args:
+            prefix: Optional prefix filter (in addition to configured prefix)
+
+        Returns:
+            List of ArchiveMetadata objects
+        """
+        archives = []
+
+        # Combine configured prefix with filter prefix
+        list_prefix = self.prefix if self.prefix else ""
+        if prefix:
+            list_prefix = f"{list_prefix}{prefix}"
+
+        # Get bucket
+        bucket = self.storage_client.bucket(self.bucket_name)
+
+        # List blobs with prefix
+        blobs = bucket.list_blobs(prefix=list_prefix if list_prefix else None)
+
+        for blob in blobs:
+            # Skip if not a .tar.gz file
+            if not blob.name.endswith(".tar.gz"):
+                continue
+
+            # Extract metadata from blob metadata
+            meta_dict = blob.metadata if blob.metadata else {}
+            archive_type = meta_dict.get("archive_type")
+            repository_name = meta_dict.get("repository_name")
+            checksum_sha256 = meta_dict.get("checksum_sha256")
+
+            # Create metadata object
+            archives.append(
+                ArchiveMetadata(
+                    key=blob.name,
+                    filename=Path(blob.name).name,
+                    size_bytes=blob.size,
+                    timestamp=blob.time_created.isoformat(),
+                    checksum_sha256=checksum_sha256,
+                    archive_type=archive_type,
+                    repository_name=repository_name,
+                    metadata=meta_dict if meta_dict else None,
+                )
+            )
+
+        return archives
 
     def delete_archive(self, remote_key: str) -> None:
-        raise NotImplementedError()
+        """Delete archive from Google Cloud Storage.
+
+        Args:
+            remote_key: Blob name (will be prefixed if prefix configured)
+        """
+        full_blob_name = self._full_blob_name(remote_key)
+
+        # Get bucket and blob
+        bucket = self.storage_client.bucket(self.bucket_name)
+        blob = bucket.blob(full_blob_name)
+
+        # Check if blob exists
+        if not blob.exists():
+            raise KeyError(f"Archive not found: {remote_key}")
+
+        # Delete blob
+        blob.delete()
 
     def archive_exists(self, remote_key: str) -> bool:
-        raise NotImplementedError()
+        """Check if archive exists in Google Cloud Storage.
+
+        Args:
+            remote_key: Blob name (will be prefixed if prefix configured)
+
+        Returns:
+            True if blob exists, False otherwise
+        """
+        full_blob_name = self._full_blob_name(remote_key)
+
+        # Get bucket and blob
+        bucket = self.storage_client.bucket(self.bucket_name)
+        blob = bucket.blob(full_blob_name)
+
+        # Check existence
+        return blob.exists()
+
+    def get_archive_url(self, remote_key: str) -> Optional[str]:
+        """Generate signed URL for GCS blob.
+
+        Args:
+            remote_key: Blob name (will be prefixed if prefix configured)
+
+        Returns:
+            Signed URL valid for 1 hour
+        """
+        from datetime import timedelta
+
+        full_blob_name = self._full_blob_name(remote_key)
+
+        # Get bucket and blob
+        bucket = self.storage_client.bucket(self.bucket_name)
+        blob = bucket.blob(full_blob_name)
+
+        # Generate signed URL
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(hours=1),
+            method="GET",
+        )
+
+        return url
 
 
 class OCIBackend(StorageBackend):
