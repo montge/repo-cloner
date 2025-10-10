@@ -1105,7 +1105,10 @@ class GCSBackend(StorageBackend):
 
 
 class OCIBackend(StorageBackend):
-    """Oracle Cloud Infrastructure Object Storage backend."""
+    """Oracle Cloud Infrastructure Object Storage backend.
+
+    Uses oci SDK for operations.
+    """
 
     def __init__(
         self,
@@ -1113,25 +1116,266 @@ class OCIBackend(StorageBackend):
         namespace: str,
         region: str,
         config_file: Optional[str] = None,
+        prefix: str = "",
     ):
-        raise NotImplementedError("OCIBackend to be implemented in Phase 2")
+        """Initialize OCI Object Storage backend.
+
+        Args:
+            bucket: OCI bucket name
+            namespace: OCI namespace (tenancy namespace)
+            region: OCI region (e.g., 'us-ashburn-1')
+            config_file: Path to OCI config file (optional, uses ~/.oci/config if not provided)
+            prefix: Optional object name prefix for all operations
+        """
+        import oci
+
+        self.bucket = bucket
+        self.namespace = namespace
+        self.region = region
+        self.config_file = config_file or "~/.oci/config"
+        self.prefix = prefix
+
+        # Load OCI config
+        config = oci.config.from_file(file_location=self.config_file)
+
+        # Create object storage client
+        self.object_storage_client = oci.object_storage.ObjectStorageClient(config)
+
+    def _full_object_name(self, remote_key: str) -> str:
+        """Prepend prefix to remote key if configured."""
+        if self.prefix:
+            return f"{self.prefix}{remote_key}"
+        return remote_key
 
     def upload_archive(
         self, local_path: Path, remote_key: str, metadata: Optional[Dict[str, Any]] = None
     ) -> ArchiveMetadata:
-        raise NotImplementedError()
+        """Upload archive to OCI Object Storage.
+
+        Args:
+            local_path: Local file to upload
+            remote_key: Object name (will be prefixed if prefix configured)
+            metadata: Optional metadata (stored as object metadata)
+
+        Returns:
+            ArchiveMetadata with upload details
+        """
+        import hashlib
+        from datetime import datetime, timezone
+
+        # Validate source exists
+        local_path = Path(local_path)
+        if not local_path.exists():
+            raise FileNotFoundError(f"Source file not found: {local_path}")
+
+        # Calculate full object name
+        full_object_name = self._full_object_name(remote_key)
+
+        # Calculate checksum
+        sha256_hash = hashlib.sha256()
+        with open(local_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha256_hash.update(chunk)
+        checksum = sha256_hash.hexdigest()
+
+        # Upload object
+        with open(local_path, "rb") as file_data:
+            put_object_args = {
+                "namespace_name": self.namespace,
+                "bucket_name": self.bucket,
+                "object_name": full_object_name,
+                "put_object_body": file_data,
+            }
+
+            # Add metadata if provided
+            if metadata:
+                # Convert all values to strings (OCI requirement)
+                put_object_args["metadata"] = {k: str(v) for k, v in metadata.items()}
+
+            self.object_storage_client.put_object(**put_object_args)
+
+        # Get object metadata to retrieve size
+        response = self.object_storage_client.get_object(
+            namespace_name=self.namespace,
+            bucket_name=self.bucket,
+            object_name=full_object_name,
+        )
+        size_bytes = response.data.content_length
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        return ArchiveMetadata(
+            key=full_object_name,
+            filename=Path(remote_key).name,
+            size_bytes=size_bytes,
+            timestamp=timestamp,
+            checksum_sha256=checksum,
+            archive_type=metadata.get("archive_type") if metadata else None,
+            repository_name=metadata.get("repository_name") if metadata else None,
+            metadata=metadata,
+        )
 
     def download_archive(self, remote_key: str, local_path: Path) -> None:
-        raise NotImplementedError()
+        """Download archive from OCI Object Storage.
+
+        Args:
+            remote_key: Object name (will be prefixed if prefix configured)
+            local_path: Destination file path
+        """
+        from oci.exceptions import ServiceError
+
+        full_object_name = self._full_object_name(remote_key)
+
+        # Download object
+        try:
+            response = self.object_storage_client.get_object(
+                namespace_name=self.namespace,
+                bucket_name=self.bucket,
+                object_name=full_object_name,
+            )
+        except ServiceError as e:
+            if e.status == 404:
+                raise KeyError(f"Archive not found: {remote_key}")
+            raise
+
+        # Create parent directories
+        local_path = Path(local_path)
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write to file
+        with open(local_path, "wb") as f:
+            f.write(response.data.content)
 
     def list_archives(self, prefix: Optional[str] = None) -> List[ArchiveMetadata]:
-        raise NotImplementedError()
+        """List archives in OCI Object Storage bucket.
+
+        Args:
+            prefix: Optional prefix filter (in addition to configured prefix)
+
+        Returns:
+            List of ArchiveMetadata objects
+        """
+        archives = []
+
+        # Combine configured prefix with filter prefix
+        list_prefix = self.prefix if self.prefix else ""
+        if prefix:
+            list_prefix = f"{list_prefix}{prefix}"
+
+        # List objects
+        response = self.object_storage_client.list_objects(
+            namespace_name=self.namespace,
+            bucket_name=self.bucket,
+            prefix=list_prefix if list_prefix else None,
+        )
+
+        for obj in response.data.objects:
+            # Skip if not a .tar.gz file
+            if not obj.name.endswith(".tar.gz"):
+                continue
+
+            # Extract metadata from object metadata
+            meta_dict = obj.metadata if obj.metadata else {}
+            archive_type = meta_dict.get("archive_type")
+            repository_name = meta_dict.get("repository_name")
+            checksum_sha256 = meta_dict.get("checksum_sha256")
+
+            # Create metadata object
+            archives.append(
+                ArchiveMetadata(
+                    key=obj.name,
+                    filename=Path(obj.name).name,
+                    size_bytes=obj.size,
+                    timestamp=obj.time_created,
+                    checksum_sha256=checksum_sha256,
+                    archive_type=archive_type,
+                    repository_name=repository_name,
+                    metadata=meta_dict if meta_dict else None,
+                )
+            )
+
+        return archives
 
     def delete_archive(self, remote_key: str) -> None:
-        raise NotImplementedError()
+        """Delete archive from OCI Object Storage.
+
+        Args:
+            remote_key: Object name (will be prefixed if prefix configured)
+        """
+        from oci.exceptions import ServiceError
+
+        full_object_name = self._full_object_name(remote_key)
+
+        # Delete object
+        try:
+            self.object_storage_client.delete_object(
+                namespace_name=self.namespace,
+                bucket_name=self.bucket,
+                object_name=full_object_name,
+            )
+        except ServiceError as e:
+            if e.status == 404:
+                raise KeyError(f"Archive not found: {remote_key}")
+            raise
 
     def archive_exists(self, remote_key: str) -> bool:
-        raise NotImplementedError()
+        """Check if archive exists in OCI Object Storage.
+
+        Args:
+            remote_key: Object name (will be prefixed if prefix configured)
+
+        Returns:
+            True if object exists, False otherwise
+        """
+        from oci.exceptions import ServiceError
+
+        full_object_name = self._full_object_name(remote_key)
+
+        # Check if object exists
+        try:
+            self.object_storage_client.head_object(
+                namespace_name=self.namespace,
+                bucket_name=self.bucket,
+                object_name=full_object_name,
+            )
+            return True
+        except ServiceError as e:
+            if e.status == 404:
+                return False
+            raise
+
+    def get_archive_url(self, remote_key: str) -> Optional[str]:
+        """Generate pre-authenticated request URL for OCI object.
+
+        Args:
+            remote_key: Object name (will be prefixed if prefix configured)
+
+        Returns:
+            Pre-authenticated request URL valid for 1 hour
+        """
+        from datetime import datetime, timedelta, timezone
+
+        import oci
+
+        full_object_name = self._full_object_name(remote_key)
+
+        # Create pre-authenticated request
+        par_details = oci.object_storage.models.CreatePreauthenticatedRequestDetails(
+            name=f"par-{full_object_name}-{datetime.now(timezone.utc).timestamp()}",
+            object_name=full_object_name,
+            access_type="ObjectRead",
+            time_expires=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+
+        response = self.object_storage_client.create_preauthenticated_request(
+            namespace_name=self.namespace,
+            bucket_name=self.bucket,
+            create_preauthenticated_request_details=par_details,
+        )
+
+        # Construct full URL
+        # Format: https://objectstorage.<region>.oraclecloud.com<access_uri>
+        base_url = f"https://objectstorage.{self.region}.oraclecloud.com"
+        return f"{base_url}{response.data.access_uri}"
 
 
 class S3CompatibleBackend(StorageBackend):
