@@ -1379,7 +1379,10 @@ class OCIBackend(StorageBackend):
 
 
 class S3CompatibleBackend(StorageBackend):
-    """S3-compatible storage backend (MinIO, Ceph, DigitalOcean, Wasabi, etc.)."""
+    """S3-compatible storage backend (MinIO, Ceph, DigitalOcean, Wasabi, etc.).
+
+    Uses boto3 with custom endpoint_url for S3-compatible services.
+    """
 
     def __init__(
         self,
@@ -1388,22 +1391,244 @@ class S3CompatibleBackend(StorageBackend):
         access_key: str,
         secret_key: str,
         region: Optional[str] = None,
+        prefix: str = "",
     ):
-        raise NotImplementedError("S3CompatibleBackend to be implemented in Phase 2")
+        """Initialize S3-compatible backend.
+
+        Args:
+            bucket: Bucket name
+            endpoint_url: S3-compatible endpoint URL (e.g., 'https://minio.example.com:9000')
+            access_key: Access key ID
+            secret_key: Secret access key
+            region: Region name (optional, defaults to 'us-east-1' for compatibility)
+            prefix: Optional key prefix for all operations
+        """
+        import boto3
+
+        self.bucket = bucket
+        self.endpoint_url = endpoint_url
+        self.access_key = access_key
+        self.secret_key = secret_key
+        self.region = region or "us-east-1"
+        self.prefix = prefix
+
+        # Create S3 client with custom endpoint
+        self.s3_client = boto3.client(
+            "s3",
+            endpoint_url=endpoint_url,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            region_name=self.region,
+        )
+
+    def _full_key(self, remote_key: str) -> str:
+        """Prepend prefix to remote key if configured."""
+        if self.prefix:
+            return f"{self.prefix}{remote_key}"
+        return remote_key
 
     def upload_archive(
         self, local_path: Path, remote_key: str, metadata: Optional[Dict[str, Any]] = None
     ) -> ArchiveMetadata:
-        raise NotImplementedError()
+        """Upload archive to S3-compatible storage.
+
+        Args:
+            local_path: Local file to upload
+            remote_key: Object key (will be prefixed if prefix configured)
+            metadata: Optional metadata (stored as S3 tags)
+
+        Returns:
+            ArchiveMetadata with upload details
+        """
+        import hashlib
+        from datetime import datetime, timezone
+
+        from botocore.exceptions import ClientError
+
+        # Validate source exists
+        local_path = Path(local_path)
+        if not local_path.exists():
+            raise FileNotFoundError(f"Source file not found: {local_path}")
+
+        # Calculate full key
+        full_key = self._full_key(remote_key)
+
+        # Calculate checksum
+        sha256_hash = hashlib.sha256()
+        with open(local_path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha256_hash.update(chunk)
+        checksum = sha256_hash.hexdigest()
+
+        # Upload to S3-compatible storage
+        self.s3_client.upload_file(str(local_path), self.bucket, full_key)
+
+        # Add tags if metadata provided
+        if metadata:
+            tag_set = [{"Key": k, "Value": str(v)} for k, v in metadata.items()]
+            self.s3_client.put_object_tagging(
+                Bucket=self.bucket, Key=full_key, Tagging={"TagSet": tag_set}
+            )
+
+        # Get object metadata
+        response = self.s3_client.head_object(Bucket=self.bucket, Key=full_key)
+        size_bytes = response["ContentLength"]
+        timestamp = datetime.now(timezone.utc).isoformat()
+
+        return ArchiveMetadata(
+            key=full_key,
+            filename=Path(remote_key).name,
+            size_bytes=size_bytes,
+            timestamp=timestamp,
+            checksum_sha256=checksum,
+            archive_type=metadata.get("archive_type") if metadata else None,
+            repository_name=metadata.get("repository_name") if metadata else None,
+            metadata=metadata,
+        )
 
     def download_archive(self, remote_key: str, local_path: Path) -> None:
-        raise NotImplementedError()
+        """Download archive from S3-compatible storage.
+
+        Args:
+            remote_key: Object key (will be prefixed if prefix configured)
+            local_path: Destination file path
+        """
+        from botocore.exceptions import ClientError
+
+        full_key = self._full_key(remote_key)
+
+        # Check if object exists
+        try:
+            self.s3_client.head_object(Bucket=self.bucket, Key=full_key)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                raise KeyError(f"Archive not found: {remote_key}")
+            raise
+
+        # Create parent directories
+        local_path = Path(local_path)
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Download file
+        self.s3_client.download_file(self.bucket, full_key, str(local_path))
 
     def list_archives(self, prefix: Optional[str] = None) -> List[ArchiveMetadata]:
-        raise NotImplementedError()
+        """List archives in S3-compatible bucket.
+
+        Args:
+            prefix: Optional prefix filter (in addition to configured prefix)
+
+        Returns:
+            List of ArchiveMetadata objects
+        """
+        from datetime import datetime, timezone
+
+        archives = []
+
+        # Combine configured prefix with filter prefix
+        list_prefix = self.prefix if self.prefix else ""
+        if prefix:
+            list_prefix = f"{list_prefix}{prefix}"
+
+        # List objects
+        paginator = self.s3_client.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=self.bucket, Prefix=list_prefix)
+
+        for page in pages:
+            if "Contents" not in page:
+                continue
+
+            for obj in page["Contents"]:
+                key = obj["Key"]
+
+                # Skip if not a .tar.gz file
+                if not key.endswith(".tar.gz"):
+                    continue
+
+                # Get tags for metadata
+                try:
+                    tag_response = self.s3_client.get_object_tagging(Bucket=self.bucket, Key=key)
+                    tags = {tag["Key"]: tag["Value"] for tag in tag_response["TagSet"]}
+                    archive_type = tags.get("archive_type")
+                    repository_name = tags.get("repository_name")
+                    meta_dict = tags
+                except Exception:
+                    archive_type = None
+                    repository_name = None
+                    meta_dict = None
+
+                # Create metadata object
+                archives.append(
+                    ArchiveMetadata(
+                        key=key,
+                        filename=Path(key).name,
+                        size_bytes=obj["Size"],
+                        timestamp=obj["LastModified"].astimezone(timezone.utc).isoformat(),
+                        checksum_sha256=None,  # Not stored in object metadata by default
+                        archive_type=archive_type,
+                        repository_name=repository_name,
+                        metadata=meta_dict,
+                    )
+                )
+
+        return archives
 
     def delete_archive(self, remote_key: str) -> None:
-        raise NotImplementedError()
+        """Delete archive from S3-compatible storage.
+
+        Args:
+            remote_key: Object key (will be prefixed if prefix configured)
+        """
+        from botocore.exceptions import ClientError
+
+        full_key = self._full_key(remote_key)
+
+        # Check if object exists
+        try:
+            self.s3_client.head_object(Bucket=self.bucket, Key=full_key)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                raise KeyError(f"Archive not found: {remote_key}")
+            raise
+
+        # Delete object
+        self.s3_client.delete_object(Bucket=self.bucket, Key=full_key)
 
     def archive_exists(self, remote_key: str) -> bool:
-        raise NotImplementedError()
+        """Check if archive exists in S3-compatible storage.
+
+        Args:
+            remote_key: Object key (will be prefixed if prefix configured)
+
+        Returns:
+            True if object exists, False otherwise
+        """
+        from botocore.exceptions import ClientError
+
+        full_key = self._full_key(remote_key)
+
+        try:
+            self.s3_client.head_object(Bucket=self.bucket, Key=full_key)
+            return True
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                return False
+            raise
+
+    def get_archive_url(self, remote_key: str) -> Optional[str]:
+        """Generate pre-signed URL for S3-compatible object.
+
+        Args:
+            remote_key: Object key (will be prefixed if prefix configured)
+
+        Returns:
+            Pre-signed URL valid for 1 hour
+        """
+        full_key = self._full_key(remote_key)
+
+        url = self.s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": self.bucket, "Key": full_key},
+            ExpiresIn=3600,  # 1 hour
+        )
+        return url
