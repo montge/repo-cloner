@@ -200,7 +200,7 @@ class TestSyncFlow:
             source_repo.index.commit("Feature commit")
 
             # Switch back to main
-            source_repo.heads.master.checkout()
+            source_repo.heads.main.checkout()
 
             # Create target (bare)
             _target_repo = git.Repo.init(target_path, bare=True)  # noqa: F841
