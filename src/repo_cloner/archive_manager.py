@@ -489,3 +489,130 @@ class ArchiveManager:
         # For now, use the same logic as full bundling
         # TODO: Implement differential LFS object detection
         return self._bundle_lfs_objects(repo_path, staging_dir)
+
+    def verify_archive(self, archive_path: str) -> Dict[str, Any]:
+        """Verify integrity and validity of an archive.
+
+        Checks:
+        - Archive file exists and can be opened
+        - manifest.json is present and valid JSON
+        - repository.bundle is present
+        - Git bundle is valid
+        - LFS objects match manifest (if lfs_enabled)
+
+        Args:
+            archive_path: Path to the archive file
+
+        Returns:
+            Dictionary containing:
+                - valid: bool indicating if archive is valid
+                - errors: List of error messages (empty if valid)
+                - manifest_valid: bool indicating if manifest is valid
+                - bundle_valid: bool indicating if git bundle is valid
+                - lfs_objects_verified: bool (if lfs_enabled)
+                - lfs_object_count: int (if lfs_enabled)
+                - archive_path: str path to the archive
+
+        Raises:
+            FileNotFoundError: If archive_path does not exist
+        """
+        archive_path_obj = Path(archive_path)
+
+        # Validate archive exists
+        if not archive_path_obj.exists():
+            raise FileNotFoundError(f"Archive file does not exist: {archive_path}")
+
+        errors = []
+        manifest_valid = False
+        bundle_valid = False
+        lfs_objects_verified = False
+        lfs_object_count = 0
+        manifest = None
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            extract_dir = Path(tmpdir) / "verify"
+            extract_dir.mkdir()
+
+            try:
+                # Extract archive
+                with tarfile.open(archive_path_obj, "r:gz") as tar:
+                    tar.extractall(extract_dir, filter="data")
+
+                # Check for manifest.json
+                manifest_path = extract_dir / "manifest.json"
+                if not manifest_path.exists():
+                    errors.append("manifest.json not found in archive")
+                else:
+                    # Validate manifest JSON
+                    try:
+                        with open(manifest_path, "r") as f:
+                            manifest = json.load(f)
+                        manifest_valid = True
+                    except json.JSONDecodeError as e:
+                        errors.append(f"manifest.json is corrupted: {e}")
+
+                # Check for repository.bundle
+                bundle_path = extract_dir / "repository.bundle"
+                if not bundle_path.exists():
+                    errors.append("repository.bundle not found in archive")
+                else:
+                    # Validate git bundle
+                    result = subprocess.run(
+                        ["git", "bundle", "verify", str(bundle_path)],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if result.returncode == 0:
+                        bundle_valid = True
+                    else:
+                        bundle_valid = False
+                        errors.append(f"Git bundle is invalid: {result.stderr}")
+
+                # Verify LFS objects if enabled
+                if manifest and manifest.get("lfs_enabled", False):
+                    lfs_dir = extract_dir / "lfs-objects"
+                    if lfs_dir.exists():
+                        # Count LFS objects in archive
+                        actual_count = 0
+                        for hash_prefix in lfs_dir.iterdir():
+                            if hash_prefix.is_dir():
+                                for hash_subdir in hash_prefix.iterdir():
+                                    if hash_subdir.is_dir():
+                                        for obj_file in hash_subdir.iterdir():
+                                            if obj_file.is_file():
+                                                actual_count += 1
+
+                        lfs_object_count = actual_count
+                        expected_count = manifest.get("lfs_object_count", 0)
+
+                        if actual_count == expected_count:
+                            lfs_objects_verified = True
+                        else:
+                            errors.append(
+                                f"LFS object count mismatch: expected {expected_count}, "
+                                f"found {actual_count}"
+                            )
+                    else:
+                        errors.append("lfs-objects directory not found but lfs_enabled is True")
+
+            except tarfile.TarError as e:
+                errors.append(f"Failed to extract archive: {e}")
+            except Exception as e:
+                errors.append(f"Unexpected error during verification: {e}")
+
+        # Determine overall validity
+        valid = len(errors) == 0 and manifest_valid and bundle_valid
+
+        return {
+            "valid": valid,
+            "errors": errors,
+            "manifest_valid": manifest_valid,
+            "bundle_valid": bundle_valid,
+            "lfs_objects_verified": (
+                lfs_objects_verified if manifest and manifest.get("lfs_enabled") else None
+            ),  # noqa: E501
+            "lfs_object_count": (
+                lfs_object_count if manifest and manifest.get("lfs_enabled") else None
+            ),  # noqa: E501
+            "archive_path": str(archive_path),
+        }
