@@ -154,8 +154,9 @@ class TestGitHubActionsWorkflow:
             content = f.read()
 
         # Should run repo-cloner sync command
-        assert "repo-cloner sync" in content or "python -m repo_cloner" in content, \
-            "Workflow must execute sync command"
+        assert (
+            "repo-cloner sync" in content or "python -m repo_cloner" in content
+        ), "Workflow must execute sync command"
 
     def test_workflow_dispatch_has_input_options(self):
         """Test that workflow_dispatch allows input configuration."""
