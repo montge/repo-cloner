@@ -49,6 +49,55 @@ GCS_SERVICE_ACCOUNT_JSON
 OCI_CONFIG_FILE
 ```
 
+## How Source/Destination Configuration Works
+
+The GitHub Actions workflow reads repository synchronization settings from a **configuration file** (`config.yml` by default) in your repository. This configuration file defines:
+
+1. **Sources**: Which Git platforms to sync FROM (GitLab, GitHub, or storage)
+2. **Targets**: Which Git platforms/storage to sync TO (GitLab, GitHub, or storage)
+3. **Mapping**: How to map organizations/groups between platforms
+4. **Sync Settings**: Directionality, LFS support, conflict resolution
+
+### Configuration File Location
+
+The workflow expects configuration in one of these locations:
+- **Default**: `config.yml` in repository root
+- **Custom**: Specify via `config_path` input when manually triggering workflow
+
+### Configuration Structure
+
+```yaml
+# Source systems (where to sync FROM)
+sources:
+  - type: gitlab | github | s3 | azure | gcs | oci | filesystem
+    url: <platform-url>
+    token: ${ENV_VAR}
+    groups: [...]        # For Git platforms
+    bucket: <name>       # For storage backends
+    region: <region>     # For cloud storage
+
+# Target systems (where to sync TO)
+targets:
+  - type: gitlab | github | s3 | azure | gcs | oci | filesystem
+    url: <platform-url>
+    token: ${ENV_VAR}
+    organization: <name>  # For Git platforms
+    bucket: <name>        # For storage backends
+    region: <region>      # For cloud storage
+
+# Mapping configuration
+mapping_strategy: flatten | prefix | topics | custom
+
+# Synchronization settings
+sync:
+  mode: unidirectional | bidirectional
+  direction: source_to_target | target_to_source
+  lfs_enabled: true | false
+  conflict_resolution: fail | source_wins | target_wins
+```
+
+See [REQUIREMENTS.md FR-7](../../REQUIREMENTS.md#fr-7-configuration-management) for full specification.
+
 ## Configuration Examples
 
 ### Example 1: GitLab → GitHub Sync
