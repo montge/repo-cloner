@@ -89,6 +89,11 @@ class ArchiveManager:
             )
             remote_url = remote_result.stdout.strip() if remote_result.returncode == 0 else ""
 
+            # Bundle LFS objects if enabled
+            lfs_object_count = 0
+            if include_lfs:
+                lfs_object_count = self._bundle_lfs_objects(repo_path_obj, staging_dir)
+
             # Create manifest
             manifest = {
                 "type": "full",
@@ -105,6 +110,7 @@ class ArchiveManager:
                     "bundle_file": "repository.bundle",
                 },
                 "lfs_enabled": include_lfs,
+                "lfs_object_count": lfs_object_count,
             }
 
             # Write manifest to staging directory
@@ -116,6 +122,12 @@ class ArchiveManager:
             with tarfile.open(archive_path, "w:gz") as tar:
                 tar.add(bundle_path, arcname="repository.bundle")
                 tar.add(manifest_path, arcname="manifest.json")
+
+                # Add LFS objects if they were bundled
+                if include_lfs:
+                    lfs_staging = staging_dir / "lfs-objects"
+                    if lfs_staging.exists():
+                        tar.add(lfs_staging, arcname="lfs-objects")
 
         return {"success": True, "archive_path": str(archive_path), "manifest": manifest}
 
@@ -381,3 +393,100 @@ class ArchiveManager:
                     )
 
         return {"success": True, "repository_path": str(repository_path), "manifest": manifest}
+
+    def _bundle_lfs_objects(self, repo_path: Path, staging_dir: Path) -> int:
+        """Bundle LFS objects from repository into staging directory.
+
+        Args:
+            repo_path: Path to the git repository
+            staging_dir: Staging directory for archive contents
+
+        Returns:
+            Number of LFS objects bundled
+        """
+        import shutil
+
+        # Check if LFS objects directory exists
+        lfs_objects_dir = repo_path / ".git" / "lfs" / "objects"
+        if not lfs_objects_dir.exists():
+            return 0
+
+        # Create LFS staging directory
+        lfs_staging = staging_dir / "lfs-objects"
+        lfs_staging.mkdir()
+
+        # Copy LFS objects preserving structure
+        # LFS uses structure: .git/lfs/objects/ab/cd/abcd1234567890...
+        object_count = 0
+        for hash_prefix_dir in lfs_objects_dir.iterdir():
+            if not hash_prefix_dir.is_dir():
+                continue
+
+            for hash_subdir in hash_prefix_dir.iterdir():
+                if not hash_subdir.is_dir():
+                    continue
+
+                # Copy entire subdirectory preserving structure
+                dest_prefix = lfs_staging / hash_prefix_dir.name
+                dest_prefix.mkdir(exist_ok=True)
+                dest_subdir = dest_prefix / hash_subdir.name
+
+                shutil.copytree(hash_subdir, dest_subdir)
+
+                # Count objects
+                for obj_file in dest_subdir.iterdir():
+                    if obj_file.is_file():
+                        object_count += 1
+
+        return object_count
+
+    def _get_lfs_object_count(self, repo_path: Path) -> int:
+        """Get count of LFS objects in repository.
+
+        Args:
+            repo_path: Path to the git repository
+
+        Returns:
+            Number of LFS objects
+        """
+        lfs_objects_dir = repo_path / ".git" / "lfs" / "objects"
+        if not lfs_objects_dir.exists():
+            return 0
+
+        count = 0
+        for hash_prefix_dir in lfs_objects_dir.iterdir():
+            if not hash_prefix_dir.is_dir():
+                continue
+
+            for hash_subdir in hash_prefix_dir.iterdir():
+                if not hash_subdir.is_dir():
+                    continue
+
+                for obj_file in hash_subdir.iterdir():
+                    if obj_file.is_file():
+                        count += 1
+
+        return count
+
+    def _bundle_lfs_objects_incremental(
+        self, repo_path: Path, staging_dir: Path, base_sha: str, current_sha: str
+    ) -> int:
+        """Bundle only new LFS objects for incremental archive.
+
+        For simplicity in this implementation, we bundle all LFS objects.
+        A more sophisticated implementation could track which LFS objects
+        are referenced by commits in the range base_sha..current_sha.
+
+        Args:
+            repo_path: Path to the git repository
+            staging_dir: Staging directory for archive contents
+            base_sha: Base commit SHA
+            current_sha: Current commit SHA
+
+        Returns:
+            Number of LFS objects bundled
+        """
+        # For now, use the same logic as full bundling
+        # TODO: Implement differential LFS object detection
+        return self._bundle_lfs_objects(repo_path, staging_dir)
+
