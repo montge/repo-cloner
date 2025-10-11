@@ -616,3 +616,98 @@ class ArchiveManager:
             ),  # noqa: E501
             "archive_path": str(archive_path),
         }
+
+    def apply_retention_policy(
+        self,
+        archives_path: str,
+        max_age_days: Optional[int] = None,
+        max_count: Optional[int] = None,
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """Apply retention policy to archives in a directory.
+
+        Retention policy can be based on:
+        - max_age_days: Delete archives older than N days
+        - max_count: Keep only N most recent archives
+        - Both: Apply both policies (archives must satisfy both to be kept)
+
+        Args:
+            archives_path: Directory containing archives
+            max_age_days: Maximum age in days (archives older will be deleted)
+            max_count: Maximum number of archives to keep (oldest deleted first)
+            dry_run: If True, simulate deletion without actually deleting
+
+        Returns:
+            Dictionary containing:
+                - deleted_count: Number of archives deleted (or would be deleted)
+                - kept_count: Number of archives kept
+                - deleted_files: List of deleted archive paths
+                - dry_run: bool indicating if this was a dry run
+
+        Raises:
+            FileNotFoundError: If archives_path does not exist
+            ValueError: If neither max_age_days nor max_count is specified
+        """
+        import os
+        import time
+
+        archives_path_obj = Path(archives_path)
+
+        # Validate directory exists
+        if not archives_path_obj.exists():
+            raise FileNotFoundError(f"Archives path does not exist: {archives_path}")
+
+        # Require at least one policy parameter
+        if max_age_days is None and max_count is None:
+            raise ValueError("At least one of max_age_days or max_count must be specified")
+
+        # Find all .tar.gz archives
+        archives = []
+        for file_path in archives_path_obj.iterdir():
+            if file_path.is_file() and file_path.suffix == ".gz" and str(file_path).endswith(".tar.gz"):
+                archives.append(file_path)
+
+        # Sort archives by modification time (newest first)
+        archives.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+        archives_to_delete = []
+        archives_to_keep = []
+
+        current_time = time.time()
+
+        for archive in archives:
+            should_delete = False
+
+            # Check age-based retention
+            if max_age_days is not None:
+                age_seconds = current_time - archive.stat().st_mtime
+                age_days = age_seconds / (24 * 60 * 60)
+                if age_days > max_age_days:
+                    should_delete = True
+
+            # Check count-based retention
+            if max_count is not None:
+                if len(archives_to_keep) >= max_count:
+                    should_delete = True
+
+            if should_delete:
+                archives_to_delete.append(archive)
+            else:
+                archives_to_keep.append(archive)
+
+        # Delete archives (unless dry run)
+        deleted_files = []
+        if not dry_run:
+            for archive in archives_to_delete:
+                archive.unlink()
+                deleted_files.append(str(archive))
+        else:
+            # In dry run, just record what would be deleted
+            deleted_files = [str(archive) for archive in archives_to_delete]
+
+        return {
+            "deleted_count": len(archives_to_delete),
+            "kept_count": len(archives_to_keep),
+            "deleted_files": deleted_files,
+            "dry_run": dry_run,
+        }
