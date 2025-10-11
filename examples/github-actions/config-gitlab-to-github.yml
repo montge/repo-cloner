@@ -1,0 +1,40 @@
+# Example: GitLab → GitHub Synchronization
+#
+# This configuration syncs repositories from GitLab groups to a GitHub organization.
+#
+# Usage:
+# 1. Set environment variables:
+#    export GITLAB_TOKEN=glpat-xxx
+#    export GITHUB_TOKEN=ghp-xxx
+# 2. Run: repo-cloner sync --config config-gitlab-to-github.yml
+
+sources:
+  - type: gitlab
+    url: https://gitlab.com
+    token: ${GITLAB_TOKEN}
+    groups:
+      - backend
+      - frontend
+      - infrastructure
+
+targets:
+  - type: github
+    url: https://github.com
+    token: ${GITHUB_TOKEN}
+    organization: mycompany
+
+# Mapping strategy: flatten nested GitLab groups
+# Example: backend/auth/service → backend-auth-service
+mapping_strategy: flatten
+
+sync:
+  mode: unidirectional
+  direction: source_to_target
+  lfs_enabled: true
+  conflict_resolution: fail  # Stop on conflicts
+
+# Repository-specific overrides (optional)
+repositories:
+  - source: backend/auth-service
+    target: mycompany/backend-auth-service
+    sync_strategy: mirror

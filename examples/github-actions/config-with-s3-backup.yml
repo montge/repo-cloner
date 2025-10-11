@@ -1,0 +1,48 @@
+# Example: Multi-Target Sync with S3 Archive Backup
+#
+# This configuration syncs from GitLab to GitHub AND creates archive backups in S3.
+#
+# Usage:
+# 1. Set environment variables:
+#    export GITLAB_TOKEN=glpat-xxx
+#    export GITHUB_TOKEN=ghp-xxx
+#    export AWS_ACCESS_KEY_ID=AKIA...
+#    export AWS_SECRET_ACCESS_KEY=xxx
+# 2. Run: repo-cloner sync --config config-with-s3-backup.yml
+
+sources:
+  - type: gitlab
+    url: https://gitlab.company.com
+    token: ${GITLAB_TOKEN}
+    groups:
+      - platform
+      - services
+
+targets:
+  # Primary: GitHub organization
+  - type: github
+    url: https://github.enterprise.com
+    token: ${GITHUB_TOKEN}
+    organization: platform-team
+
+  # Secondary: S3 archive backup
+  - type: s3
+    bucket: company-repo-backups
+    region: us-east-1
+    prefix: gitlab-mirrors/
+    access_key: ${AWS_ACCESS_KEY_ID}
+    secret_key: ${AWS_SECRET_ACCESS_KEY}
+
+mapping_strategy: flatten
+
+sync:
+  mode: unidirectional
+  direction: source_to_target
+  lfs_enabled: true
+
+# Archive configuration for S3 target
+archive:
+  type: full  # Create full archives
+  include_lfs: true
+  compression: gzip
+  retention_days: 90  # Auto-delete archives older than 90 days

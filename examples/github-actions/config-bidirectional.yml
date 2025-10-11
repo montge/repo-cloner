@@ -1,0 +1,38 @@
+# Example: Bidirectional Synchronization with Conflict Detection
+#
+# This configuration keeps GitLab and GitHub repositories in sync bidirectionally.
+# Changes in either direction are synchronized automatically.
+#
+# Usage:
+# 1. Set environment variables:
+#    export GITLAB_TOKEN=glpat-xxx
+#    export GITHUB_TOKEN=ghp-xxx
+# 2. Run: repo-cloner sync --config config-bidirectional.yml
+
+sources:
+  - type: gitlab
+    url: https://gitlab.company.com
+    token: ${GITLAB_TOKEN}
+    groups:
+      - open-source
+
+targets:
+  - type: github
+    url: https://github.com
+    token: ${GITHUB_TOKEN}
+    organization: company-oss
+
+mapping_strategy: flatten
+
+sync:
+  mode: bidirectional  # Sync changes in both directions
+  lfs_enabled: true
+  conflict_resolution: fail  # Stop and alert on conflicts
+  # Alternative options:
+  # conflict_resolution: source_wins  # GitLab changes take precedence
+  # conflict_resolution: target_wins  # GitHub changes take precedence
+
+# Note: For bidirectional sync, it's recommended to:
+# 1. Run with --dry-run first to preview changes
+# 2. Monitor the first few syncs carefully
+# 3. Use conflict_resolution: fail initially to catch unexpected conflicts

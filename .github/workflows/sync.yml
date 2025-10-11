@@ -1,0 +1,184 @@
+name: Repository Synchronization
+
+# This workflow template can be used by teams to automate repository synchronization
+# between GitLab, GitHub, and cloud storage backends.
+#
+# To use this workflow:
+# 1. Copy this file to your repository's .github/workflows/ directory
+# 2. Configure GitHub Secrets (Settings > Secrets and variables > Actions):
+#    - GITLAB_TOKEN: GitLab Personal Access Token (read_repository scope)
+#    - GITHUB_TOKEN: GitHub PAT (repo scope) - or use the built-in GITHUB_TOKEN
+#    - AWS_ACCESS_KEY_ID: (Optional) For S3 storage backend
+#    - AWS_SECRET_ACCESS_KEY: (Optional) For S3 storage backend
+#    - AZURE_STORAGE_CONNECTION_STRING: (Optional) For Azure Blob storage
+#    - GCS_SERVICE_ACCOUNT_JSON: (Optional) For Google Cloud Storage
+# 3. Update the workflow_dispatch inputs to match your configuration
+# 4. Adjust the schedule cron expression for your sync frequency
+
+"on":
+  # Scheduled execution - runs daily at 2 AM UTC
+  # Adjust the cron schedule as needed:
+  # - "0 2 * * *" = Daily at 2 AM
+  # - "0 */6 * * *" = Every 6 hours
+  # - "0 0 * * 0" = Weekly on Sunday at midnight
+  schedule:
+    - cron: "0 2 * * *"
+
+  # Manual trigger with configuration options
+  workflow_dispatch:
+    inputs:
+      config_path:
+        description: 'Path to configuration file (relative to repository root)'
+        required: false
+        default: 'config.yml'
+        type: string
+
+      dry_run:
+        description: 'Perform dry-run (no actual changes)'
+        required: false
+        default: false
+        type: boolean
+
+      verbose:
+        description: 'Enable verbose logging'
+        required: false
+        default: false
+        type: boolean
+
+      sync_mode:
+        description: 'Synchronization mode'
+        required: false
+        default: 'unidirectional'
+        type: choice
+        options:
+          - unidirectional
+          - bidirectional
+
+      force:
+        description: 'Force synchronization (overwrite conflicts)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  sync:
+    name: Synchronize Repositories
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install repo-cloner
+        run: |
+          pip install -e .
+
+      - name: Verify installation
+        run: |
+          repo-cloner --version
+          repo-cloner --help
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+
+      - name: Run synchronization
+        env:
+          # GitLab credentials
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          GITLAB_URL: ${{ secrets.GITLAB_URL }}
+
+          # GitHub credentials (use built-in token or custom PAT)
+          GITHUB_TOKEN: ${{ secrets.GH_PAT || github.token }}
+          GITHUB_URL: ${{ secrets.GITHUB_URL }}
+
+          # Cloud storage credentials (optional)
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+          AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+
+          GCS_SERVICE_ACCOUNT_JSON: ${{ secrets.GCS_SERVICE_ACCOUNT_JSON }}
+
+          OCI_CONFIG_FILE: ${{ secrets.OCI_CONFIG_FILE }}
+        run: |
+          # Build command arguments
+          CMD="repo-cloner sync"
+
+          # Add config file
+          CONFIG_PATH="${{ github.event.inputs.config_path || 'config.yml' }}"
+          if [ -f "$CONFIG_PATH" ]; then
+            CMD="$CMD --config $CONFIG_PATH"
+          else
+            echo "⚠️  Warning: Config file not found at $CONFIG_PATH"
+            echo "Using environment variables for configuration"
+          fi
+
+          # Add optional flags
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            CMD="$CMD --dry-run"
+          fi
+
+          if [ "${{ github.event.inputs.verbose }}" = "true" ]; then
+            CMD="$CMD --verbose"
+          fi
+
+          if [ "${{ github.event.inputs.sync_mode }}" = "bidirectional" ]; then
+            CMD="$CMD --bidirectional"
+          fi
+
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            CMD="$CMD --force"
+          fi
+
+          # Execute sync
+          echo "🚀 Executing: $CMD"
+          $CMD
+
+      - name: Generate summary report
+        if: always()
+        run: |
+          echo "## Repository Synchronization Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow:** ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Run ID:** ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Configuration details
+          echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Config Path:** ${{ github.event.inputs.config_path || 'config.yml' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dry Run:** ${{ github.event.inputs.dry_run || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Verbose:** ${{ github.event.inputs.verbose || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Sync Mode:** ${{ github.event.inputs.sync_mode || 'unidirectional' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Force:** ${{ github.event.inputs.force || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Timestamp
+          echo "**Completed at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-logs-${{ github.run_id }}
+          path: |
+            *.log
+            /tmp/repo-cloner-*.log
+          retention-days: 7
+          if-no-files-found: ignore
