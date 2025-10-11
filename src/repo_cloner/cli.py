@@ -8,6 +8,7 @@ import click
 from .archive_manager import ArchiveManager
 from .auth_manager import AuthManager
 from .git_client import GitClient
+from .storage_backend import LocalFilesystemBackend
 
 
 @click.group()
@@ -391,6 +392,207 @@ def retention(archives_path, max_age_days, max_count, dry_run, verbose):
         click.echo(f"❌ Error: {e}", err=True)
         sys.exit(1)
     except ValueError as e:
+        click.echo(f"❌ Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Unexpected error: {e}", err=True)
+        sys.exit(1)
+
+
+@archive.command()
+@click.option(
+    "--archive-path",
+    required=True,
+    help="Path to the local archive file to upload",
+    type=click.Path(exists=True),
+)
+@click.option(
+    "--storage-path",
+    required=True,
+    help="Storage backend path (local filesystem directory)",
+    type=click.Path(),
+)
+@click.option(
+    "--remote-key",
+    default=None,
+    help="Remote key/path for the archive (default: use archive filename)",
+)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+def upload(archive_path, storage_path, remote_key, verbose):
+    """Upload an archive to storage backend.
+
+    Currently supports local filesystem storage backend.
+
+    Examples:
+        # Upload to local storage
+        repo-cloner archive upload --archive-path /archives/repo-full-20251010.tar.gz \\
+            --storage-path /mnt/backup
+
+        # Upload with custom remote key
+        repo-cloner archive upload --archive-path /archives/repo-full-20251010.tar.gz \\
+            --storage-path /mnt/backup --remote-key backups/repo-full-20251010.tar.gz
+    """
+    archive_path_obj = Path(archive_path)
+
+    # Determine remote key
+    if remote_key is None:
+        remote_key = archive_path_obj.name
+
+    if verbose:
+        click.echo(f"Archive: {archive_path}")
+        click.echo(f"Storage path: {storage_path}")
+        click.echo(f"Remote key: {remote_key}")
+
+    try:
+        # Create storage backend
+        storage_path_obj = Path(storage_path).absolute()
+        backend = LocalFilesystemBackend(storage_path_obj)
+
+        click.echo(f"📤 Uploading archive to storage...")
+        metadata = backend.upload_archive(
+            local_path=archive_path_obj,
+            remote_key=remote_key,
+            metadata={
+                "uploaded_at": str(Path(archive_path).stat().st_mtime),
+            },
+        )
+
+        click.echo(f"✅ Archive uploaded successfully: {metadata.key}")
+        if verbose:
+            click.echo(f"  Size: {metadata.size_bytes} bytes")
+            click.echo(f"  Timestamp: {metadata.timestamp}")
+
+    except FileNotFoundError as e:
+        click.echo(f"❌ Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Unexpected error: {e}", err=True)
+        sys.exit(1)
+
+
+@archive.command()
+@click.option(
+    "--storage-path",
+    required=True,
+    help="Storage backend path (local filesystem directory)",
+    type=click.Path(exists=True),
+)
+@click.option(
+    "--remote-key",
+    required=True,
+    help="Remote key/path of the archive to download",
+)
+@click.option(
+    "--output-path",
+    required=True,
+    help="Local path where archive will be downloaded",
+    type=click.Path(),
+)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+def download(storage_path, remote_key, output_path, verbose):
+    """Download an archive from storage backend.
+
+    Currently supports local filesystem storage backend.
+
+    Examples:
+        # Download from local storage
+        repo-cloner archive download --storage-path /mnt/backup \\
+            --remote-key backups/repo-full-20251010.tar.gz \\
+            --output-path /downloads/repo-full-20251010.tar.gz
+
+        # Download with verbose output
+        repo-cloner archive download --storage-path /mnt/backup \\
+            --remote-key repo-full-20251010.tar.gz --output-path /downloads/archive.tar.gz --verbose
+    """
+    if verbose:
+        click.echo(f"Storage path: {storage_path}")
+        click.echo(f"Remote key: {remote_key}")
+        click.echo(f"Output path: {output_path}")
+
+    try:
+        # Create storage backend
+        storage_path_obj = Path(storage_path).absolute()
+        backend = LocalFilesystemBackend(storage_path_obj)
+
+        click.echo(f"📥 Downloading archive from storage...")
+        output_path_obj = Path(output_path)
+        backend.download_archive(
+            remote_key=remote_key,
+            local_path=output_path_obj,
+        )
+
+        click.echo(f"✅ Archive downloaded successfully: {output_path}")
+        if verbose:
+            size = output_path_obj.stat().st_size
+            click.echo(f"  Size: {size} bytes")
+
+    except FileNotFoundError as e:
+        click.echo(f"❌ Error: {e}", err=True)
+        sys.exit(1)
+    except KeyError as e:
+        click.echo(f"❌ Archive not found in storage: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.echo(f"❌ Unexpected error: {e}", err=True)
+        sys.exit(1)
+
+
+@archive.command()
+@click.option(
+    "--storage-path",
+    required=True,
+    help="Storage backend path (local filesystem directory)",
+    type=click.Path(exists=True),
+)
+@click.option(
+    "--prefix",
+    default="",
+    help="Filter archives by prefix (e.g., backups/)",
+)
+@click.option("--verbose", "-v", is_flag=True, help="Show detailed metadata")
+def list(storage_path, prefix, verbose):
+    """List archives in storage backend.
+
+    Currently supports local filesystem storage backend.
+
+    Examples:
+        # List all archives
+        repo-cloner archive list --storage-path /mnt/backup
+
+        # List with prefix filter
+        repo-cloner archive list --storage-path /mnt/backup --prefix backups/
+
+        # List with verbose output
+        repo-cloner archive list --storage-path /mnt/backup --verbose
+    """
+    if verbose:
+        click.echo(f"Storage path: {storage_path}")
+        click.echo(f"Prefix filter: {prefix if prefix else '(none)'}")
+
+    try:
+        # Create storage backend
+        storage_path_obj = Path(storage_path).absolute()
+        backend = LocalFilesystemBackend(storage_path_obj)
+
+        click.echo(f"📋 Listing archives in storage...")
+        archives = backend.list_archives(prefix=prefix if prefix else None)
+
+        if not archives:
+            click.echo("No archives found.")
+            return
+
+        click.echo(f"\nFound {len(archives)} archive(s):\n")
+        for archive_meta in archives:
+            click.echo(f"  📦 {archive_meta.key}")
+            if verbose:
+                click.echo(f"      Size: {archive_meta.size_bytes} bytes")
+                click.echo(f"      Timestamp: {archive_meta.timestamp}")
+                if archive_meta.archive_type:
+                    click.echo(f"      Type: {archive_meta.archive_type}")
+                if archive_meta.repository_name:
+                    click.echo(f"      Repository: {archive_meta.repository_name}")
+
+    except FileNotFoundError as e:
         click.echo(f"❌ Error: {e}", err=True)
         sys.exit(1)
     except Exception as e:
