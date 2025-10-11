@@ -673,8 +673,8 @@ class ArchiveManager:
         # Sort archives by modification time (newest first)
         archives.sort(key=lambda p: p.stat().st_mtime, reverse=True)
 
-        archives_to_delete = []
-        archives_to_keep = []
+        archives_to_delete: List[Path] = []
+        archives_to_keep: List[Path] = []
 
         current_time = time.time()
 
