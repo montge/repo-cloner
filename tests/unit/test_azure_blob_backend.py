@@ -267,6 +267,7 @@ class TestAzureBlobBackend:
 
             # Simulate blob not found
             from azure.core.exceptions import ResourceNotFoundError
+
             mock_blob_client.download_blob.side_effect = ResourceNotFoundError("Blob not found")
 
             with patch("azure.storage.blob.BlobServiceClient") as mock_bsc:
@@ -438,6 +439,7 @@ class TestAzureBlobBackend:
 
         # Simulate blob not found
         from azure.core.exceptions import ResourceNotFoundError
+
         mock_blob_client.delete_blob.side_effect = ResourceNotFoundError("Blob not found")
 
         with patch("azure.storage.blob.BlobServiceClient") as mock_bsc:
@@ -505,7 +507,9 @@ class TestAzureBlobBackend:
         mock_blob_service.get_blob_client.return_value = mock_blob_client
 
         # Mock SAS URL generation
-        mock_blob_client.url = "https://teststorage.blob.core.windows.net/test-container/archive.tar.gz"
+        mock_blob_client.url = (
+            "https://teststorage.blob.core.windows.net/test-container/archive.tar.gz"
+        )
 
         with patch("azure.storage.blob.BlobServiceClient") as mock_bsc:
             mock_bsc.return_value = mock_blob_service

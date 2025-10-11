@@ -489,4 +489,3 @@ class ArchiveManager:
         # For now, use the same logic as full bundling
         # TODO: Implement differential LFS object detection
         return self._bundle_lfs_objects(repo_path, staging_dir)
-

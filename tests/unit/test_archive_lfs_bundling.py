@@ -1,13 +1,10 @@
 """Tests for LFS object bundling in archives."""
 
-import json
 import subprocess
 import tarfile
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from repo_cloner.archive_manager import ArchiveManager
 
@@ -22,9 +19,7 @@ class TestArchiveLFSBundling:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create real test repository
             repo_path = Path(tmpdir) / "test-repo"
-            subprocess.run(
-                ["git", "init", str(repo_path)], check=True, capture_output=True
-            )
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
             subprocess.run(
                 ["git", "config", "user.name", "Test"],
                 cwd=str(repo_path),
@@ -104,9 +99,7 @@ class TestArchiveLFSBundling:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create real test repository
             repo_path = Path(tmpdir) / "test-repo"
-            subprocess.run(
-                ["git", "init", str(repo_path)], check=True, capture_output=True
-            )
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
             subprocess.run(
                 ["git", "config", "user.name", "Test"],
                 cwd=str(repo_path),
@@ -162,9 +155,7 @@ class TestArchiveLFSBundling:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create real test repository with LFS
             repo_path = Path(tmpdir) / "test-repo"
-            subprocess.run(
-                ["git", "init", str(repo_path)], check=True, capture_output=True
-            )
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
             subprocess.run(
                 ["git", "config", "user.name", "Test"],
                 cwd=str(repo_path),
@@ -244,9 +235,7 @@ class TestArchiveLFSBundling:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create test repositories
             repo_path = Path(tmpdir) / "test-repo"
-            subprocess.run(
-                ["git", "init", str(repo_path)], check=True, capture_output=True
-            )
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
             subprocess.run(
                 ["git", "config", "user.name", "Test"],
                 cwd=str(repo_path),
@@ -320,9 +309,7 @@ class TestArchiveLFSBundling:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_path = Path(tmpdir) / "test-repo"
-            subprocess.run(
-                ["git", "init", str(repo_path)], check=True, capture_output=True
-            )
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
             subprocess.run(
                 ["git", "config", "user.name", "Test"],
                 cwd=str(repo_path),
@@ -376,9 +363,7 @@ class TestArchiveLFSBundling:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a simple archive with LFS metadata
             repo_path = Path(tmpdir) / "test-repo"
-            subprocess.run(
-                ["git", "init", str(repo_path)], check=True, capture_output=True
-            )
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
             subprocess.run(
                 ["git", "config", "user.name", "Test"],
                 cwd=str(repo_path),

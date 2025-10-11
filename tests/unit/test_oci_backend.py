@@ -60,9 +60,10 @@ class TestOCIBackend:
             mock_response.data.content_length = len("test content")
             mock_object_storage_client.get_object.return_value = mock_response
 
-            with patch("oci.config.from_file"), patch(
-                "oci.object_storage.ObjectStorageClient"
-            ) as mock_client:
+            with (
+                patch("oci.config.from_file"),
+                patch("oci.object_storage.ObjectStorageClient") as mock_client,
+            ):
                 mock_client.return_value = mock_object_storage_client
 
                 backend = OCIBackend(
@@ -98,9 +99,10 @@ class TestOCIBackend:
             mock_response.data.content_length = len("content")
             mock_object_storage_client.get_object.return_value = mock_response
 
-            with patch("oci.config.from_file"), patch(
-                "oci.object_storage.ObjectStorageClient"
-            ) as mock_client:
+            with (
+                patch("oci.config.from_file"),
+                patch("oci.object_storage.ObjectStorageClient") as mock_client,
+            ):
                 mock_client.return_value = mock_object_storage_client
 
                 backend = OCIBackend(
@@ -141,9 +143,10 @@ class TestOCIBackend:
                 "repository_name": "test-repo",
             }
 
-            with patch("oci.config.from_file"), patch(
-                "oci.object_storage.ObjectStorageClient"
-            ) as mock_client:
+            with (
+                patch("oci.config.from_file"),
+                patch("oci.object_storage.ObjectStorageClient") as mock_client,
+            ):
                 mock_client.return_value = mock_object_storage_client
 
                 backend = OCIBackend(
@@ -191,9 +194,10 @@ class TestOCIBackend:
             mock_response.data.content = b"stored content"
             mock_object_storage_client.get_object.return_value = mock_response
 
-            with patch("oci.config.from_file"), patch(
-                "oci.object_storage.ObjectStorageClient"
-            ) as mock_client:
+            with (
+                patch("oci.config.from_file"),
+                patch("oci.object_storage.ObjectStorageClient") as mock_client,
+            ):
                 mock_client.return_value = mock_object_storage_client
 
                 backend = OCIBackend(
@@ -224,9 +228,10 @@ class TestOCIBackend:
             mock_response.data.content = b"content"
             mock_object_storage_client.get_object.return_value = mock_response
 
-            with patch("oci.config.from_file"), patch(
-                "oci.object_storage.ObjectStorageClient"
-            ) as mock_client:
+            with (
+                patch("oci.config.from_file"),
+                patch("oci.object_storage.ObjectStorageClient") as mock_client,
+            ):
                 mock_client.return_value = mock_object_storage_client
 
                 backend = OCIBackend(
@@ -263,9 +268,10 @@ class TestOCIBackend:
                 status=404, code="ObjectNotFound", headers={}, message="Not found"
             )
 
-            with patch("oci.config.from_file"), patch(
-                "oci.object_storage.ObjectStorageClient"
-            ) as mock_client:
+            with (
+                patch("oci.config.from_file"),
+                patch("oci.object_storage.ObjectStorageClient") as mock_client,
+            ):
                 mock_client.return_value = mock_object_storage_client
 
                 backend = OCIBackend(
@@ -304,9 +310,10 @@ class TestOCIBackend:
         mock_response.data.objects = [mock_obj1, mock_obj2]
         mock_object_storage_client.list_objects.return_value = mock_response
 
-        with patch("oci.config.from_file"), patch(
-            "oci.object_storage.ObjectStorageClient"
-        ) as mock_client:
+        with (
+            patch("oci.config.from_file"),
+            patch("oci.object_storage.ObjectStorageClient") as mock_client,
+        ):
             mock_client.return_value = mock_object_storage_client
 
             backend = OCIBackend(
@@ -347,9 +354,10 @@ class TestOCIBackend:
         mock_response.data.objects = [mock_obj1, mock_obj2]
         mock_object_storage_client.list_objects.return_value = mock_response
 
-        with patch("oci.config.from_file"), patch(
-            "oci.object_storage.ObjectStorageClient"
-        ) as mock_client:
+        with (
+            patch("oci.config.from_file"),
+            patch("oci.object_storage.ObjectStorageClient") as mock_client,
+        ):
             mock_client.return_value = mock_object_storage_client
 
             backend = OCIBackend(
@@ -392,9 +400,10 @@ class TestOCIBackend:
         mock_response.data.objects = [mock_obj]
         mock_object_storage_client.list_objects.return_value = mock_response
 
-        with patch("oci.config.from_file"), patch(
-            "oci.object_storage.ObjectStorageClient"
-        ) as mock_client:
+        with (
+            patch("oci.config.from_file"),
+            patch("oci.object_storage.ObjectStorageClient") as mock_client,
+        ):
             mock_client.return_value = mock_object_storage_client
 
             backend = OCIBackend(
@@ -418,9 +427,10 @@ class TestOCIBackend:
         # Arrange
         mock_object_storage_client = MagicMock()
 
-        with patch("oci.config.from_file"), patch(
-            "oci.object_storage.ObjectStorageClient"
-        ) as mock_client:
+        with (
+            patch("oci.config.from_file"),
+            patch("oci.object_storage.ObjectStorageClient") as mock_client,
+        ):
             mock_client.return_value = mock_object_storage_client
 
             backend = OCIBackend(
@@ -447,9 +457,10 @@ class TestOCIBackend:
             status=404, code="ObjectNotFound", headers={}, message="Not found"
         )
 
-        with patch("oci.config.from_file"), patch(
-            "oci.object_storage.ObjectStorageClient"
-        ) as mock_client:
+        with (
+            patch("oci.config.from_file"),
+            patch("oci.object_storage.ObjectStorageClient") as mock_client,
+        ):
             mock_client.return_value = mock_object_storage_client
 
             backend = OCIBackend(
@@ -470,9 +481,10 @@ class TestOCIBackend:
         mock_response.data = Mock()
         mock_object_storage_client.head_object.return_value = mock_response
 
-        with patch("oci.config.from_file"), patch(
-            "oci.object_storage.ObjectStorageClient"
-        ) as mock_client:
+        with (
+            patch("oci.config.from_file"),
+            patch("oci.object_storage.ObjectStorageClient") as mock_client,
+        ):
             mock_client.return_value = mock_object_storage_client
 
             backend = OCIBackend(
@@ -496,9 +508,10 @@ class TestOCIBackend:
             status=404, code="ObjectNotFound", headers={}, message="Not found"
         )
 
-        with patch("oci.config.from_file"), patch(
-            "oci.object_storage.ObjectStorageClient"
-        ) as mock_client:
+        with (
+            patch("oci.config.from_file"),
+            patch("oci.object_storage.ObjectStorageClient") as mock_client,
+        ):
             mock_client.return_value = mock_object_storage_client
 
             backend = OCIBackend(
@@ -519,9 +532,10 @@ class TestOCIBackend:
         mock_response.data.access_uri = "/p/abc123/n/namespace/b/bucket/o/archive.tar.gz"
         mock_object_storage_client.create_preauthenticated_request.return_value = mock_response
 
-        with patch("oci.config.from_file"), patch(
-            "oci.object_storage.ObjectStorageClient"
-        ) as mock_client:
+        with (
+            patch("oci.config.from_file"),
+            patch("oci.object_storage.ObjectStorageClient") as mock_client,
+        ):
             mock_client.return_value = mock_object_storage_client
 
             backend = OCIBackend(

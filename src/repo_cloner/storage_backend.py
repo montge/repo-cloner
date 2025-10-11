@@ -755,7 +755,9 @@ class AzureBlobBackend(StorageBackend):
         container_client = self.blob_service_client.get_container_client(self.container)
 
         # List blobs with prefix
-        blob_list = container_client.list_blobs(name_starts_with=list_prefix if list_prefix else None)
+        blob_list = container_client.list_blobs(
+            name_starts_with=list_prefix if list_prefix else None
+        )
 
         for blob in blob_list:
             # Skip if not a .tar.gz file
@@ -879,7 +881,8 @@ class GCSBackend(StorageBackend):
         Args:
             bucket: GCS bucket name
             project_id: GCP project ID (optional, can be inferred from credentials)
-            service_account_json: Path to service account JSON file (optional, uses ADC if not provided)
+            service_account_json: Path to service account JSON file
+                (optional, uses ADC if not provided)
             prefix: Optional blob name prefix for all operations
         """
         from google.cloud import storage

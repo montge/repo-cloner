@@ -199,8 +199,9 @@ class TestSyncFlow:
             source_repo.index.add(["feature.txt"])
             source_repo.index.commit("Feature commit")
 
-            # Switch back to main
-            source_repo.heads.main.checkout()
+            # Switch back to default branch (main or master depending on git version)
+            default_branch = source_repo.heads[0]  # Get first branch (default)
+            default_branch.checkout()
 
             # Create target (bare)
             _target_repo = git.Repo.init(target_path, bare=True)  # noqa: F841
