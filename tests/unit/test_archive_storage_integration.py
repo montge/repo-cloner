@@ -3,9 +3,6 @@
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from repo_cloner.archive_manager import ArchiveManager
 from repo_cloner.storage_backend import LocalFilesystemBackend

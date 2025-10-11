@@ -1,11 +1,9 @@
 """Tests for CLI archive management commands."""
 
-import json
 import subprocess
 import tempfile
 from pathlib import Path
 
-import pytest
 from click.testing import CliRunner
 
 from repo_cloner.cli import main

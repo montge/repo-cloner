@@ -1,11 +1,7 @@
 """Tests for archive retention policies."""
 
-import json
-import subprocess
-import tarfile
 import tempfile
 import time
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest

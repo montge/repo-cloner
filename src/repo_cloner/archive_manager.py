@@ -648,7 +648,6 @@ class ArchiveManager:
             FileNotFoundError: If archives_path does not exist
             ValueError: If neither max_age_days nor max_count is specified
         """
-        import os
         import time
 
         archives_path_obj = Path(archives_path)
