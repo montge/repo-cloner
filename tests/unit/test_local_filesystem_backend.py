@@ -1,13 +1,12 @@
 """Unit tests for LocalFilesystemBackend storage backend."""
 
 import json
-import shutil
 import tempfile
 from pathlib import Path
 
 import pytest
 
-from repo_cloner.storage_backend import ArchiveMetadata, LocalFilesystemBackend
+from repo_cloner.storage_backend import LocalFilesystemBackend
 
 
 class TestLocalFilesystemBackend:

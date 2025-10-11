@@ -402,7 +402,7 @@ class S3Backend(StorageBackend):
         import hashlib
         from datetime import datetime, timezone
 
-        from botocore.exceptions import ClientError
+        from botocore.exceptions import ClientError  # noqa: F401 (used in except block)
 
         # Validate source exists
         local_path = Path(local_path)
@@ -480,7 +480,7 @@ class S3Backend(StorageBackend):
         Returns:
             List of ArchiveMetadata objects
         """
-        from datetime import datetime, timezone
+        from datetime import datetime, timezone  # noqa: F401 (used below)
 
         archives = []
 
@@ -1446,7 +1446,7 @@ class S3CompatibleBackend(StorageBackend):
         import hashlib
         from datetime import datetime, timezone
 
-        from botocore.exceptions import ClientError
+        from botocore.exceptions import ClientError  # noqa: F401 (used in except block)
 
         # Validate source exists
         local_path = Path(local_path)
@@ -1524,7 +1524,7 @@ class S3CompatibleBackend(StorageBackend):
         Returns:
             List of ArchiveMetadata objects
         """
-        from datetime import datetime, timezone
+        from datetime import datetime, timezone  # noqa: F401 (used below)
 
         archives = []
 
