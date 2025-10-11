@@ -448,7 +448,7 @@ def upload(archive_path, storage_path, remote_key, verbose):
         storage_path_obj = Path(storage_path).absolute()
         backend = LocalFilesystemBackend(storage_path_obj)
 
-        click.echo(f"📤 Uploading archive to storage...")
+        click.echo("📤 Uploading archive to storage...")
         metadata = backend.upload_archive(
             local_path=archive_path_obj,
             remote_key=remote_key,
@@ -514,7 +514,7 @@ def download(storage_path, remote_key, output_path, verbose):
         storage_path_obj = Path(storage_path).absolute()
         backend = LocalFilesystemBackend(storage_path_obj)
 
-        click.echo(f"📥 Downloading archive from storage...")
+        click.echo("📥 Downloading archive from storage...")
         output_path_obj = Path(output_path)
         backend.download_archive(
             remote_key=remote_key,
@@ -574,7 +574,7 @@ def list(storage_path, prefix, verbose):
         storage_path_obj = Path(storage_path).absolute()
         backend = LocalFilesystemBackend(storage_path_obj)
 
-        click.echo(f"📋 Listing archives in storage...")
+        click.echo("📋 Listing archives in storage...")
         archives = backend.list_archives(prefix=prefix if prefix else None)
 
         if not archives:
