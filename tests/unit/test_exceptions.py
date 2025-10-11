@@ -3,13 +3,13 @@
 import pytest
 
 from repo_cloner.exceptions import (
-    RepoClonerError,
+    ArchiveError,
     AuthenticationError,
     ConfigurationError,
     GitOperationError,
     NetworkError,
+    RepoClonerError,
     StorageError,
-    ArchiveError,
     SyncConflictError,
 )
 
