@@ -590,7 +590,7 @@ class S3Backend(StorageBackend):
             Params={"Bucket": self.bucket, "Key": full_key},
             ExpiresIn=3600,  # 1 hour
         )
-        return url
+        return url  # type: ignore[no-any-return]  # boto3 SDK returns Any
 
 
 class AzureBlobBackend(StorageBackend):
@@ -1078,7 +1078,7 @@ class GCSBackend(StorageBackend):
         blob = bucket.blob(full_blob_name)
 
         # Check existence
-        return blob.exists()
+        return blob.exists()  # type: ignore[no-any-return]  # google-cloud-storage SDK
 
     def get_archive_url(self, remote_key: str) -> Optional[str]:
         """Generate signed URL for GCS blob.
@@ -1103,8 +1103,7 @@ class GCSBackend(StorageBackend):
             expiration=timedelta(hours=1),
             method="GET",
         )
-
-        return url
+        return url  # type: ignore[no-any-return]  # google-cloud-storage SDK
 
 
 class OCIBackend(StorageBackend):
@@ -1634,4 +1633,4 @@ class S3CompatibleBackend(StorageBackend):
             Params={"Bucket": self.bucket, "Key": full_key},
             ExpiresIn=3600,  # 1 hour
         )
-        return url
+        return url  # type: ignore[no-any-return]  # boto3 SDK returns Any
