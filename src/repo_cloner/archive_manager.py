@@ -664,7 +664,11 @@ class ArchiveManager:
         # Find all .tar.gz archives
         archives = []
         for file_path in archives_path_obj.iterdir():
-            if file_path.is_file() and file_path.suffix == ".gz" and str(file_path).endswith(".tar.gz"):
+            if (
+                file_path.is_file()
+                and file_path.suffix == ".gz"
+                and str(file_path).endswith(".tar.gz")
+            ):
                 archives.append(file_path)
 
         # Sort archives by modification time (newest first)
