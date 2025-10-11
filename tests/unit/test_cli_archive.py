@@ -118,7 +118,10 @@ class TestCLIArchiveCreate:
 
             # Assert
             assert result.exit_code == 0
-            assert "LFS objects included" in result.output or "Archive created successfully" in result.output
+            assert (
+                "LFS objects included" in result.output
+                or "Archive created successfully" in result.output
+            )
 
     def test_create_incremental_archive(self):
         """Test creating an incremental archive."""
@@ -276,7 +279,9 @@ class TestCLIArchiveVerify:
             archive_file = list(output_path.glob("*.tar.gz"))[0]
 
             # Act - verify archive
-            result2 = runner.invoke(main, ["archive", "verify", "--archive-path", str(archive_file)])
+            result2 = runner.invoke(
+                main, ["archive", "verify", "--archive-path", str(archive_file)]
+            )
 
             # Assert
             assert result2.exit_code == 0
@@ -292,7 +297,9 @@ class TestCLIArchiveVerify:
             invalid_archive.write_bytes(b"not a valid tar.gz")
 
             # Act
-            result = runner.invoke(main, ["archive", "verify", "--archive-path", str(invalid_archive)])
+            result = runner.invoke(
+                main, ["archive", "verify", "--archive-path", str(invalid_archive)]
+            )
 
             # Assert
             assert result.exit_code != 0

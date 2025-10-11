@@ -116,7 +116,10 @@ def archive():
 
 @archive.command()
 @click.option(
-    "--repo-path", required=True, help="Path to the git repository to archive", type=click.Path(exists=True)
+    "--repo-path",
+    required=True,
+    help="Path to the git repository to archive",
+    type=click.Path(exists=True),
 )
 @click.option(
     "--output-path",
@@ -169,7 +172,9 @@ def create(repo_path, output_path, archive_type, parent_archive, include_lfs, ve
             )
         else:  # incremental
             if parent_archive is None:
-                click.echo("❌ Error: --parent-archive is required for incremental archives", err=True)
+                click.echo(
+                    "❌ Error: --parent-archive is required for incremental archives", err=True
+                )
                 sys.exit(1)
 
             click.echo("📦 Creating incremental archive...")
@@ -184,7 +189,7 @@ def create(repo_path, output_path, archive_type, parent_archive, include_lfs, ve
             click.echo(f"✅ Archive created successfully: {result['archive_path']}")
             if verbose:
                 click.echo(f"Archive type: {result['manifest']['type']}")
-                if include_lfs and result['manifest'].get('lfs_object_count', 0) > 0:
+                if include_lfs and result["manifest"].get("lfs_object_count", 0) > 0:
                     click.echo(f"LFS objects included: {result['manifest']['lfs_object_count']}")
             if archive_type == "incremental":
                 click.echo("✅ Incremental archive created successfully")
