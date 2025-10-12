@@ -29,6 +29,7 @@ pylint>=3.0.3               # Additional linting
 
 # Type Stubs
 types-PyYAML>=6.0.12         # Type stubs for PyYAML
+types-requests>=2.31.0       # Type stubs for requests
 
 # Pre-commit
 pre-commit>=3.6.0
