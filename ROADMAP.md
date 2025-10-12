@@ -1404,7 +1404,20 @@ For true air-gap deployments, repositories alone are insufficient. Dependencies 
 #### 2. Language-Specific Dependency Fetchers (Top 10 Languages + Additional)
 
 **Python** (#1 in 2025 - AI, ML, Data Science, Web)
-- [ ] Parse `requirements.txt`, `Pipfile`, `pyproject.toml`, `setup.py`, `poetry.lock`
+- [x] Parse `requirements.txt`, `Pipfile`, `pyproject.toml`, `setup.py`, `poetry.lock` (✅ **COMPLETED** - 16 tests, 91% coverage)
+  - **File**: `src/repo_cloner/python_parser.py` (292 lines)
+  - **Tests**: `tests/unit/test_python_parser.py` (16 tests passing)
+  - **Features**:
+    * PythonDependency dataclass (name, version_spec, extras, markers, url, editable)
+    * PythonManifestParser with auto-detection based on filename
+    * Requirements.txt: pinned/min/max versions, complex specs (>=2.0,!=2.5,<3.0), extras, markers, comments
+    * pyproject.toml: PEP 621 format ([project]) and Poetry format ([tool.poetry])
+    * Pipfile: runtime dependencies from [packages], dev dependencies excluded
+    * setup.py: AST-based parsing (safe, no code execution)
+    * Environment markers support (sys_platform, python_version, etc.)
+    * URL-based dependencies detected (skipped for now)
+    * Editable installs detected (skipped for now)
+  - **Commit**: `d4ae200` - "Sprint 9 Phase 2: Python manifest parser"
 - [ ] Fetch from PyPI, private PyPI servers (Nexus, Artifactory, JFrog)
 - [ ] **Resolve transitive dependencies**: Use pip's resolver or parse package metadata recursively
 - [ ] Support authentication (username/password, token, .pypirc)
