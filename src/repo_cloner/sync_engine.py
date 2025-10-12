@@ -1,5 +1,6 @@
 """Synchronization engine for repository mirroring and updates."""
 
+import json
 import tempfile
 from pathlib import Path
 from typing import Dict
@@ -13,6 +14,60 @@ class SyncEngine:
     def __init__(self):
         """Initialize SyncEngine."""
         pass
+
+    def save_state(self, state_file: str, state_data: Dict) -> None:
+        """
+        Save sync state to JSON file.
+
+        Args:
+            state_file: Path to state file
+            state_data: State dictionary to save
+        """
+        state_path = Path(state_file)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(json.dumps(state_data, indent=2))
+
+    def load_state(self, state_file: str) -> Dict:
+        """
+        Load sync state from JSON file.
+
+        Args:
+            state_file: Path to state file
+
+        Returns:
+            State dictionary
+        """
+        state_path = Path(state_file)
+        if not state_path.exists():
+            return {}
+        content: Dict = json.loads(state_path.read_text())
+        return content
+
+    def detect_force_push(self, repo_path: str, old_sha: str, new_sha: str) -> bool:
+        """
+        Detect if a force push occurred by checking if new_sha is an ancestor of old_sha.
+
+        Args:
+            repo_path: Path to repository
+            old_sha: Previous commit SHA
+            new_sha: New commit SHA
+
+        Returns:
+            True if force push detected (new_sha is not a descendant of old_sha)
+        """
+        repo = git.Repo(repo_path)
+
+        try:
+            # Check if old_sha is an ancestor of new_sha
+            # If yes, this is a normal fast-forward push
+            # If no, this is a force push (history was rewritten)
+            old_commit = repo.commit(old_sha)
+            new_commit = repo.commit(new_sha)
+            is_ancestor = repo.is_ancestor(old_commit, new_commit)
+            return not is_ancestor
+        except git.exc.GitCommandError:
+            # If git can't determine ancestry, assume force push
+            return True
 
     def sync_repository(
         self,
@@ -38,13 +93,17 @@ class SyncEngine:
             - branches_synced: int
         """
         if direction == "source_to_target":
-            return self._sync_unidirectional(source_url, target_url, strategy)
+            return self._sync_unidirectional(source_url, target_url, strategy, direction)
         elif direction == "target_to_source":
-            return self._sync_unidirectional(target_url, source_url, strategy)
+            return self._sync_unidirectional(target_url, source_url, strategy, direction)
         elif direction == "bidirectional":
             # For now, simplified bidirectional (will add conflict detection later)
-            result1 = self._sync_unidirectional(source_url, target_url, strategy)
-            result2 = self._sync_unidirectional(target_url, source_url, strategy)
+            result1 = self._sync_unidirectional(
+                source_url, target_url, strategy, "source_to_target"
+            )
+            result2 = self._sync_unidirectional(
+                target_url, source_url, strategy, "target_to_source"
+            )
             return {
                 "success": result1["success"] and result2["success"],
                 "direction": "bidirectional",
@@ -54,7 +113,9 @@ class SyncEngine:
         else:
             raise ValueError(f"Unknown direction: {direction}")
 
-    def _sync_unidirectional(self, source_url: str, target_url: str, strategy: str) -> Dict:
+    def _sync_unidirectional(
+        self, source_url: str, target_url: str, strategy: str, direction: str = "source_to_target"
+    ) -> Dict:
         """
         Perform unidirectional sync from source to target.
 
@@ -62,6 +123,7 @@ class SyncEngine:
             source_url: Source repository
             target_url: Target repository
             strategy: mirror or incremental
+            direction: Direction of sync (for result tracking)
 
         Returns:
             Sync result dictionary
@@ -85,14 +147,14 @@ class SyncEngine:
 
                     return {
                         "success": True,
-                        "direction": "source_to_target",
+                        "direction": direction,
                         "commits_synced": commits_count,
                         "branches_synced": branches_count,
                     }
                 except Exception as e:
                     return {
                         "success": False,
-                        "direction": "source_to_target",
+                        "direction": direction,
                         "commits_synced": 0,
                         "branches_synced": 0,
                         "error": str(e),

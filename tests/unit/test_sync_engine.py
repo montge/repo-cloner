@@ -275,3 +275,243 @@ class TestSyncEngine:
             # Assert
             assert result["success"] is True
             assert result["resolution_strategy"] == "source_wins"
+
+    def test_state_persists_last_sync_time_per_direction(self):
+        """Test that state file persists last sync time per direction."""
+        # Arrange
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "sync_state.json"
+
+            engine = SyncEngine()
+
+            # Create mock sync state
+            state_data = {
+                "source_to_target": {
+                    "last_sync_time": "2025-10-12T00:00:00",
+                    "last_commit_sha": "abc123",
+                },
+                "target_to_source": {
+                    "last_sync_time": "2025-10-11T00:00:00",
+                    "last_commit_sha": "def456",
+                },
+            }
+
+            # Act - Save state
+            engine.save_state(str(state_file), state_data)
+
+            # Assert - Load and verify
+            loaded_state = engine.load_state(str(state_file))
+            assert "source_to_target" in loaded_state
+            assert "target_to_source" in loaded_state
+            assert loaded_state["source_to_target"]["last_commit_sha"] == "abc123"
+            assert loaded_state["target_to_source"]["last_commit_sha"] == "def456"
+
+    def test_sync_handles_force_push(self):
+        """Test that sync detects and handles force pushes."""
+        # Arrange
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_path = Path(tmpdir) / "repo"
+            repo = git.Repo.init(repo_path)
+
+            # Initial commit
+            (repo_path / "file.txt").write_text("version 1")
+            repo.index.add(["file.txt"])
+            commit1 = repo.index.commit("Commit 1")
+            sha1 = commit1.hexsha
+
+            # Second commit
+            (repo_path / "file.txt").write_text("version 2")
+            repo.index.add(["file.txt"])
+            commit2 = repo.index.commit("Commit 2")
+            sha2 = commit2.hexsha
+
+            # Force push detection: check if sha1 is ancestor of sha2
+            engine = SyncEngine()
+
+            # Act
+            is_force_push = engine.detect_force_push(
+                repo_path=str(repo_path), old_sha=sha1, new_sha=sha2
+            )
+
+            # Assert - Not a force push (sha2 is descendant of sha1)
+            assert is_force_push is False
+
+            # Now test actual force push (reset to earlier commit)
+            repo.git.reset("--hard", sha1)
+            (repo_path / "file.txt").write_text("version 2 alternative")
+            repo.index.add(["file.txt"])
+            commit3 = repo.index.commit("Commit 3 (force)")
+            sha3 = commit3.hexsha
+
+            # sha3 is NOT a descendant of sha2, this is a force push
+            is_force_push = engine.detect_force_push(
+                repo_path=str(repo_path), old_sha=sha2, new_sha=sha3
+            )
+
+            # Assert - This is a force push
+            assert is_force_push is True
+
+    def test_bidirectional_sync_without_conflicts(self):
+        """Test bidirectional sync when no conflicts exist."""
+        # Arrange - Create two independent repos with non-conflicting changes
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = Path(tmpdir) / "source"
+            target_path = Path(tmpdir) / "target"
+
+            # Create source repo
+            source_repo = git.Repo.init(source_path)
+            (source_path / "source_file.txt").write_text("source content")
+            source_repo.index.add(["source_file.txt"])
+            source_repo.index.commit("Source initial commit")
+
+            # Create target repo with different content
+            target_repo = git.Repo.init(target_path)
+            (target_path / "target_file.txt").write_text("target content")
+            target_repo.index.add(["target_file.txt"])
+            target_repo.index.commit("Target initial commit")
+
+            # Act - Bidirectional sync (will merge both repos)
+            engine = SyncEngine()
+            result = engine.sync_repository(
+                source_url=str(source_path),
+                target_url=str(target_path),
+                direction="bidirectional",
+                strategy="mirror",
+            )
+
+            # Assert - Should succeed (bidirectional sync completed)
+            assert result["success"] is True
+            assert result["direction"] == "bidirectional"
+            assert result["commits_synced"] >= 1
+
+    def test_conflict_resolution_fail_fast(self):
+        """Test conflict resolution with fail-fast strategy (default)."""
+        # Arrange - Create conflicting repos
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = Path(tmpdir) / "source"
+            target_path = Path(tmpdir) / "target"
+
+            # Create repos with divergent commits
+            source_repo = git.Repo.init(source_path)
+            (source_path / "file.txt").write_text("initial")
+            source_repo.index.add(["file.txt"])
+            source_repo.index.commit("Base")
+
+            target_repo = source_repo.clone(target_path)
+
+            # Diverge
+            (source_path / "file.txt").write_text("source version")
+            source_repo.index.add(["file.txt"])
+            source_repo.index.commit("Source commit")
+
+            (target_path / "file.txt").write_text("target version")
+            target_repo.index.add(["file.txt"])
+            target_repo.index.commit("Target commit")
+
+            # Act - Try to resolve with fail_fast strategy
+            engine = SyncEngine()
+            result = engine.resolve_conflicts(
+                source_url=str(source_path), target_url=str(target_path), strategy="fail_fast"
+            )
+
+            # Assert - Should fail with fail_fast
+            assert result["success"] is False
+            assert result["resolution_strategy"] == "fail_fast"
+            assert "fail" in result["message"].lower()
+
+    def test_sync_direction_target_to_source(self):
+        """Test unidirectional sync from target to source (reverse direction)."""
+        # Arrange
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = Path(tmpdir) / "source"
+            target_path = Path(tmpdir) / "target"
+
+            # Create source repository
+            _source_repo = git.Repo.init(source_path, bare=True)  # noqa: F841
+
+            # Create target repository with content
+            target_repo = git.Repo.init(target_path)
+            (target_path / "file1.txt").write_text("content from target")
+            target_repo.index.add(["file1.txt"])
+            target_repo.index.commit("Initial commit in target")
+
+            # Create SyncEngine
+            engine = SyncEngine()
+
+            # Act - Sync target to source (reverse direction)
+            result = engine.sync_repository(
+                source_url=str(source_path),
+                target_url=str(target_path),
+                direction="target_to_source",
+                strategy="mirror",
+            )
+
+            # Assert - Should sync in reverse (target → source)
+            assert result["success"] is True
+            assert result["direction"] == "target_to_source"
+            assert result["commits_synced"] > 0
+
+    def test_full_bidirectional_sync_cycle(self):
+        """Integration test: Full bidirectional sync cycle with state tracking."""
+        # Arrange
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = Path(tmpdir) / "source"
+            target_path = Path(tmpdir) / "target"
+            state_file = Path(tmpdir) / "state.json"
+
+            # Create source repository
+            source_repo = git.Repo.init(source_path)
+            (source_path / "file1.txt").write_text("source content")
+            source_repo.index.add(["file1.txt"])
+            source_repo.index.commit("Initial source commit")
+
+            # Create target repository
+            target_repo = git.Repo.init(target_path)
+            (target_path / "file2.txt").write_text("target content")
+            target_repo.index.add(["file2.txt"])
+            target_repo.index.commit("Initial target commit")
+
+            # Create SyncEngine
+            engine = SyncEngine()
+
+            # Act - First sync cycle (should handle initial divergence)
+            result1 = engine.sync_repository(
+                source_url=str(source_path),
+                target_url=str(target_path),
+                direction="bidirectional",
+                strategy="mirror",
+            )
+
+            # Save state
+            state1 = {
+                "source_to_target": {"last_sync_time": "2025-10-12T00:00:00"},
+                "target_to_source": {"last_sync_time": "2025-10-12T00:00:00"},
+            }
+            engine.save_state(str(state_file), state1)
+
+            # Make changes on both sides
+            (source_path / "new_source.txt").write_text("new in source")
+            source_repo.index.add(["new_source.txt"])
+            source_repo.index.commit("New source commit")
+
+            (target_path / "new_target.txt").write_text("new in target")
+            target_repo.index.add(["new_target.txt"])
+            target_repo.index.commit("New target commit")
+
+            # Act - Second sync cycle
+            result2 = engine.sync_repository(
+                source_url=str(source_path),
+                target_url=str(target_path),
+                direction="bidirectional",
+                strategy="mirror",
+            )
+
+            # Assert
+            assert result1["success"] is True
+            assert result2["success"] is True
+            assert result2["direction"] == "bidirectional"
+
+            # Verify state was saved and loaded
+            loaded_state = engine.load_state(str(state_file))
+            assert "source_to_target" in loaded_state
+            assert "target_to_source" in loaded_state
