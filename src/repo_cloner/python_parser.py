@@ -281,9 +281,7 @@ class PythonManifestParser:
                             # Extract list of dependencies
                             if isinstance(keyword.value, ast.List):
                                 for elt in keyword.value.elts:
-                                    if isinstance(elt, ast.Constant) and isinstance(
-                                        elt.value, str
-                                    ):
+                                    if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
                                         dep_str = elt.value
                                         dep = self._parse_requirement_line(dep_str)
                                         if dep:

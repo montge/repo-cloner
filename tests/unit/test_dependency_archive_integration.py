@@ -242,8 +242,7 @@ class TestDependencyArchiveIntegration:
         # Create files
         (deps_dir / "requests-2.31.0-py3-none-any.whl").write_bytes(b"fake")
         install_cmd = (
-            "pip install --no-index --find-links "
-            "../dependencies/python -r requirements.txt"
+            "pip install --no-index --find-links " "../dependencies/python -r requirements.txt"
         )
         (scripts_dir / "setup-python.sh").write_text(f"#!/bin/bash\n{install_cmd}\n")
 
