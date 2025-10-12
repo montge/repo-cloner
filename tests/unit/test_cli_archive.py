@@ -460,3 +460,657 @@ class TestCLIArchiveRetention:
             assert "dry run" in result.output.lower() or "would delete" in result.output.lower()
             # Archive should still exist
             assert old_archive.exists()
+
+
+class TestCLIArchiveUpload:
+    """Test suite for 'archive upload' command."""
+
+    def test_upload_archive_to_storage(self):
+        """Test uploading an archive to storage backend."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create test repository and archive
+            repo_path = Path(tmpdir) / "test-repo"
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "test.txt").write_text("test")
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=str(repo_path), check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+
+            archives_path = Path(tmpdir) / "archives"
+            archives_path.mkdir()
+
+            # Create archive
+            result1 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "create",
+                    "--repo-path",
+                    str(repo_path),
+                    "--output-path",
+                    str(archives_path),
+                ],
+            )
+            assert result1.exit_code == 0
+            archive_file = list(archives_path.glob("*.tar.gz"))[0]
+
+            # Create storage directory
+            storage_path = Path(tmpdir) / "storage"
+            storage_path.mkdir()
+
+            # Act - upload archive
+            result2 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "upload",
+                    "--archive-path",
+                    str(archive_file),
+                    "--storage-path",
+                    str(storage_path),
+                ],
+            )
+
+            # Assert
+            assert result2.exit_code == 0
+            assert "uploaded successfully" in result2.output.lower() or "✓" in result2.output
+            # Check that archive was uploaded to storage
+            uploaded_files = list(storage_path.glob("*.tar.gz"))
+            assert len(uploaded_files) > 0
+
+    def test_upload_archive_with_custom_remote_key(self):
+        """Test uploading archive with custom remote key."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create test repository and archive
+            repo_path = Path(tmpdir) / "test-repo"
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "test.txt").write_text("test")
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=str(repo_path), check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+
+            archives_path = Path(tmpdir) / "archives"
+            archives_path.mkdir()
+
+            # Create archive
+            result1 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "create",
+                    "--repo-path",
+                    str(repo_path),
+                    "--output-path",
+                    str(archives_path),
+                ],
+            )
+            assert result1.exit_code == 0
+            archive_file = list(archives_path.glob("*.tar.gz"))[0]
+
+            # Create storage directory
+            storage_path = Path(tmpdir) / "storage"
+            storage_path.mkdir()
+
+            # Act - upload with custom remote key
+            result2 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "upload",
+                    "--archive-path",
+                    str(archive_file),
+                    "--storage-path",
+                    str(storage_path),
+                    "--remote-key",
+                    "backups/custom-name.tar.gz",
+                ],
+            )
+
+            # Assert
+            assert result2.exit_code == 0
+            assert (
+                "uploaded successfully" in result2.output.lower() or "custom-name" in result2.output
+            )
+
+    def test_upload_fails_for_missing_archive(self):
+        """Test upload fails when archive doesn't exist."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage_path = Path(tmpdir) / "storage"
+            storage_path.mkdir()
+
+            result = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "upload",
+                    "--archive-path",
+                    "/nonexistent/archive.tar.gz",
+                    "--storage-path",
+                    str(storage_path),
+                ],
+            )
+
+            assert result.exit_code != 0
+            assert "does not exist" in result.output.lower() or "error" in result.output.lower()
+
+    def test_upload_verbose_mode(self):
+        """Test upload with verbose output."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create test repository and archive
+            repo_path = Path(tmpdir) / "test-repo"
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "test.txt").write_text("test")
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=str(repo_path), check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+
+            archives_path = Path(tmpdir) / "archives"
+            archives_path.mkdir()
+
+            # Create archive
+            result1 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "create",
+                    "--repo-path",
+                    str(repo_path),
+                    "--output-path",
+                    str(archives_path),
+                ],
+            )
+            assert result1.exit_code == 0
+            archive_file = list(archives_path.glob("*.tar.gz"))[0]
+
+            storage_path = Path(tmpdir) / "storage"
+            storage_path.mkdir()
+
+            # Act - upload with verbose
+            result2 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "upload",
+                    "--archive-path",
+                    str(archive_file),
+                    "--storage-path",
+                    str(storage_path),
+                    "--verbose",
+                ],
+            )
+
+            # Assert
+            assert result2.exit_code == 0
+            assert "Archive:" in result2.output or "Size:" in result2.output
+
+
+class TestCLIArchiveDownload:
+    """Test suite for 'archive download' command."""
+
+    def test_download_archive_from_storage(self):
+        """Test downloading an archive from storage backend."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create test repository and archive
+            repo_path = Path(tmpdir) / "test-repo"
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "test.txt").write_text("test")
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=str(repo_path), check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+
+            archives_path = Path(tmpdir) / "archives"
+            archives_path.mkdir()
+
+            # Create archive
+            result1 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "create",
+                    "--repo-path",
+                    str(repo_path),
+                    "--output-path",
+                    str(archives_path),
+                ],
+            )
+            assert result1.exit_code == 0
+            archive_file = list(archives_path.glob("*.tar.gz"))[0]
+
+            # Upload to storage
+            storage_path = Path(tmpdir) / "storage"
+            storage_path.mkdir()
+            result2 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "upload",
+                    "--archive-path",
+                    str(archive_file),
+                    "--storage-path",
+                    str(storage_path),
+                ],
+            )
+            assert result2.exit_code == 0
+
+            # Act - download archive
+            download_path = Path(tmpdir) / "downloads" / "downloaded.tar.gz"
+            download_path.parent.mkdir()
+            result3 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "download",
+                    "--storage-path",
+                    str(storage_path),
+                    "--remote-key",
+                    archive_file.name,
+                    "--output-path",
+                    str(download_path),
+                ],
+            )
+
+            # Assert
+            assert result3.exit_code == 0
+            assert "downloaded successfully" in result3.output.lower() or "✓" in result3.output
+            assert download_path.exists()
+
+    def test_download_fails_for_missing_remote_key(self):
+        """Test download fails when remote key doesn't exist."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage_path = Path(tmpdir) / "storage"
+            storage_path.mkdir()
+
+            download_path = Path(tmpdir) / "downloads" / "archive.tar.gz"
+            download_path.parent.mkdir()
+
+            result = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "download",
+                    "--storage-path",
+                    str(storage_path),
+                    "--remote-key",
+                    "nonexistent.tar.gz",
+                    "--output-path",
+                    str(download_path),
+                ],
+            )
+
+            assert result.exit_code != 0
+            assert (
+                "not found" in result.output.lower()
+                or "error" in result.output.lower()
+                or "does not exist" in result.output.lower()
+            )
+
+    def test_download_verbose_mode(self):
+        """Test download with verbose output."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create test repository and archive
+            repo_path = Path(tmpdir) / "test-repo"
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "test.txt").write_text("test")
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=str(repo_path), check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+
+            archives_path = Path(tmpdir) / "archives"
+            archives_path.mkdir()
+
+            # Create and upload archive
+            result1 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "create",
+                    "--repo-path",
+                    str(repo_path),
+                    "--output-path",
+                    str(archives_path),
+                ],
+            )
+            assert result1.exit_code == 0
+            archive_file = list(archives_path.glob("*.tar.gz"))[0]
+
+            storage_path = Path(tmpdir) / "storage"
+            storage_path.mkdir()
+            result2 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "upload",
+                    "--archive-path",
+                    str(archive_file),
+                    "--storage-path",
+                    str(storage_path),
+                ],
+            )
+            assert result2.exit_code == 0
+
+            # Act - download with verbose
+            download_path = Path(tmpdir) / "downloads" / "archive.tar.gz"
+            download_path.parent.mkdir()
+            result3 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "download",
+                    "--storage-path",
+                    str(storage_path),
+                    "--remote-key",
+                    archive_file.name,
+                    "--output-path",
+                    str(download_path),
+                    "--verbose",
+                ],
+            )
+
+            # Assert
+            assert result3.exit_code == 0
+            assert "Storage path:" in result3.output or "Size:" in result3.output
+
+
+class TestCLIArchiveList:
+    """Test suite for 'archive list' command."""
+
+    def test_list_archives_in_storage(self):
+        """Test listing archives in storage backend."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create test repository and archives
+            repo_path = Path(tmpdir) / "test-repo"
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "test.txt").write_text("test")
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=str(repo_path), check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+
+            archives_path = Path(tmpdir) / "archives"
+            archives_path.mkdir()
+
+            # Create and upload multiple archives
+            storage_path = Path(tmpdir) / "storage"
+            storage_path.mkdir()
+
+            for i in range(3):
+                result1 = runner.invoke(
+                    main,
+                    [
+                        "archive",
+                        "create",
+                        "--repo-path",
+                        str(repo_path),
+                        "--output-path",
+                        str(archives_path),
+                    ],
+                )
+                assert result1.exit_code == 0
+                archive_file = list(archives_path.glob("*.tar.gz"))[0]
+
+                result2 = runner.invoke(
+                    main,
+                    [
+                        "archive",
+                        "upload",
+                        "--archive-path",
+                        str(archive_file),
+                        "--storage-path",
+                        str(storage_path),
+                        "--remote-key",
+                        f"archive-{i}.tar.gz",
+                    ],
+                )
+                assert result2.exit_code == 0
+                archive_file.unlink()  # Clean up for next iteration
+
+            # Act - list archives
+            result = runner.invoke(main, ["archive", "list", "--storage-path", str(storage_path)])
+
+            # Assert
+            assert result.exit_code == 0
+            assert "Found" in result.output or "archive" in result.output.lower()
+            # Should list at least one archive
+            assert "archive-" in result.output
+
+    def test_list_archives_with_prefix_filter(self):
+        """Test listing archives with prefix filter."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage_path = Path(tmpdir) / "storage"
+            storage_path.mkdir()
+
+            # Create some archives with different prefixes
+            (storage_path / "backups").mkdir()
+            (storage_path / "backups" / "repo-1.tar.gz").write_bytes(b"archive1")
+            (storage_path / "backups" / "repo-2.tar.gz").write_bytes(b"archive2")
+            (storage_path / "temp-archive.tar.gz").write_bytes(b"temp")
+
+            # Act - list with prefix filter
+            result = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "list",
+                    "--storage-path",
+                    str(storage_path),
+                    "--prefix",
+                    "backups/",
+                ],
+            )
+
+            # Assert
+            assert result.exit_code == 0
+            assert "backups/" in result.output or "repo-" in result.output
+
+    def test_list_archives_verbose_mode(self):
+        """Test listing archives with verbose output."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create test repository and archive
+            repo_path = Path(tmpdir) / "test-repo"
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "test.txt").write_text("test")
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=str(repo_path), check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+
+            archives_path = Path(tmpdir) / "archives"
+            archives_path.mkdir()
+
+            # Create and upload archive
+            result1 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "create",
+                    "--repo-path",
+                    str(repo_path),
+                    "--output-path",
+                    str(archives_path),
+                ],
+            )
+            assert result1.exit_code == 0
+            archive_file = list(archives_path.glob("*.tar.gz"))[0]
+
+            storage_path = Path(tmpdir) / "storage"
+            storage_path.mkdir()
+            result2 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "upload",
+                    "--archive-path",
+                    str(archive_file),
+                    "--storage-path",
+                    str(storage_path),
+                ],
+            )
+            assert result2.exit_code == 0
+
+            # Act - list with verbose
+            result = runner.invoke(
+                main, ["archive", "list", "--storage-path", str(storage_path), "--verbose"]
+            )
+
+            # Assert
+            assert result.exit_code == 0
+            assert "Size:" in result.output or "Timestamp:" in result.output
+
+    def test_list_empty_storage(self):
+        """Test listing archives when storage is empty."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            storage_path = Path(tmpdir) / "storage"
+            storage_path.mkdir()
+
+            result = runner.invoke(main, ["archive", "list", "--storage-path", str(storage_path)])
+
+            assert result.exit_code == 0
+            assert (
+                "no archives found" in result.output.lower() or "0 archive" in result.output.lower()
+            )
