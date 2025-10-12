@@ -1114,3 +1114,265 @@ class TestCLIArchiveList:
             assert (
                 "no archives found" in result.output.lower() or "0 archive" in result.output.lower()
             )
+
+
+class TestCLIArchiveVerboseModes:
+    """Test suite for verbose modes in archive commands."""
+
+    def test_create_verbose_mode(self):
+        """Test create command with verbose flag."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_path = Path(tmpdir) / "test-repo"
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "test.txt").write_text("test")
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=str(repo_path), check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+
+            output_path = Path(tmpdir) / "archives"
+            output_path.mkdir()
+
+            result = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "create",
+                    "--repo-path",
+                    str(repo_path),
+                    "--output-path",
+                    str(output_path),
+                    "--verbose",
+                ],
+            )
+
+            assert result.exit_code == 0
+            assert "Repository:" in result.output
+            assert "Output path:" in result.output
+            assert "Archive type:" in result.output
+
+    def test_create_incremental_without_parent_archive(self):
+        """Test incremental archive fails without parent-archive."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_path = Path(tmpdir) / "test-repo"
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "test.txt").write_text("test")
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=str(repo_path), check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+
+            output_path = Path(tmpdir) / "archives"
+            output_path.mkdir()
+
+            result = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "create",
+                    "--repo-path",
+                    str(repo_path),
+                    "--output-path",
+                    str(output_path),
+                    "--type",
+                    "incremental",
+                ],
+            )
+
+            assert result.exit_code == 1
+            assert "--parent-archive is required" in result.output
+
+    def test_verify_verbose_mode(self):
+        """Test verify command with verbose flag."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_path = Path(tmpdir) / "test-repo"
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "test.txt").write_text("test")
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=str(repo_path), check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+
+            output_path = Path(tmpdir) / "archives"
+            output_path.mkdir()
+
+            # Create archive
+            result1 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "create",
+                    "--repo-path",
+                    str(repo_path),
+                    "--output-path",
+                    str(output_path),
+                ],
+            )
+            assert result1.exit_code == 0
+            archive_file = list(output_path.glob("*.tar.gz"))[0]
+
+            # Verify with verbose
+            result2 = runner.invoke(
+                main, ["archive", "verify", "--archive-path", str(archive_file), "--verbose"]
+            )
+
+            assert result2.exit_code == 0
+            assert "Manifest:" in result2.output or "Bundle:" in result2.output
+
+    def test_restore_verbose_mode(self):
+        """Test restore command with verbose flag."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_path = Path(tmpdir) / "test-repo"
+            subprocess.run(["git", "init", str(repo_path)], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.name", "Test"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+            (repo_path / "test.txt").write_text("test")
+            subprocess.run(
+                ["git", "add", "test.txt"], cwd=str(repo_path), check=True, capture_output=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(repo_path),
+                check=True,
+                capture_output=True,
+            )
+
+            archives_path = Path(tmpdir) / "archives"
+            archives_path.mkdir()
+
+            # Create archive
+            result1 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "create",
+                    "--repo-path",
+                    str(repo_path),
+                    "--output-path",
+                    str(archives_path),
+                ],
+            )
+            assert result1.exit_code == 0
+            archive_file = list(archives_path.glob("*.tar.gz"))[0]
+
+            # Restore with verbose
+            restore_path = Path(tmpdir) / "restored"
+            restore_path.mkdir()
+            result2 = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "restore",
+                    "--archive-path",
+                    str(archive_file),
+                    "--output-path",
+                    str(restore_path),
+                    "--verbose",
+                ],
+            )
+
+            assert result2.exit_code == 0
+            assert "Archive:" in result2.output or "Repository name:" in result2.output
+
+    def test_retention_verbose_mode(self):
+        """Test retention command with verbose flag."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archives_dir = Path(tmpdir) / "archives"
+            archives_dir.mkdir()
+
+            # Create test archives
+            (archives_dir / "repo-1.tar.gz").write_bytes(b"archive1")
+            (archives_dir / "repo-2.tar.gz").write_bytes(b"archive2")
+
+            import os
+            import time
+
+            old_time = time.time() - (60 * 24 * 60 * 60)
+            os.utime(archives_dir / "repo-1.tar.gz", (old_time, old_time))
+
+            result = runner.invoke(
+                main,
+                [
+                    "archive",
+                    "retention",
+                    "--archives-path",
+                    str(archives_dir),
+                    "--max-age-days",
+                    "30",
+                    "--verbose",
+                ],
+            )
+
+            assert result.exit_code == 0
+            assert "Archives path:" in result.output or "Max age" in result.output
