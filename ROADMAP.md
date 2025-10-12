@@ -1436,6 +1436,19 @@ For true air-gap deployments, repositories alone are insufficient. Dependencies 
     * Private PyPI authentication (username/password)
     * Batch download of all resolved dependencies
   - **Commit**: `fc953e6` - "Sprint 9 Phase 3: PyPI client with transitive dependency resolution"
+- [x] Archive integration with dependency fetching (✅ **COMPLETED** - 10 tests, 100% passing)
+  - **File**: `src/repo_cloner/archive_manager.py` (extended with 3 new methods)
+  - **Tests**: `tests/unit/test_dependency_archive_integration.py` (10 tests passing)
+  - **Features**:
+    * `create_archive_with_dependencies()` - main integration method combining repo archiving with dependency detection
+    * `_generate_dependency_manifest()` - creates structured dependency manifest (language, manifest_file, packages)
+    * `_generate_offline_install_script()` - generates bash scripts for offline installation (setup-python.sh)
+    * External manifest files alongside archives for easy inspection (.manifest.json)
+    * Automatic language detection using DependencyDetector
+    * Dependency info recorded in archive manifest (dependencies section)
+    * Support for including/excluding dependencies via parameter
+    * Offline installation scripts with `pip install --no-index --find-links`
+  - **Commit**: `0fff85b` - "Sprint 9 Phase 4: Archive integration with dependency fetching"
 
 **Java** (#2 in 2025 - Enterprise, Android)
 - [ ] Parse `pom.xml` (Maven), `build.gradle` (Gradle), `build.sbt` (SBT)
