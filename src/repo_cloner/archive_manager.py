@@ -714,3 +714,206 @@ class ArchiveManager:
             "deleted_files": deleted_files,
             "dry_run": dry_run,
         }
+
+    def create_archive_with_dependencies(
+        self,
+        repo_path: str,
+        output_dir: str,
+        include_dependencies: bool = True,
+        include_lfs: bool = False,
+    ) -> Path:
+        """Create archive with repository and its dependencies.
+
+        Args:
+            repo_path: Path to the git repository
+            output_dir: Directory where archive will be created
+            include_dependencies: Whether to include dependencies
+            include_lfs: Whether to include LFS objects
+
+        Returns:
+            Path to created archive
+
+        Raises:
+            FileNotFoundError: If repo_path does not exist
+        """
+        from .dependency_detector import DependencyDetector, LanguageType
+        from .python_parser import PythonManifestParser
+
+        repo_path_obj = Path(repo_path)
+        output_dir_obj = Path(output_dir)
+
+        if not repo_path_obj.exists():
+            raise FileNotFoundError(f"Repository path does not exist: {repo_path}")
+
+        output_dir_obj.mkdir(parents=True, exist_ok=True)
+
+        # Generate archive filename
+        repo_name = repo_path_obj.name
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        archive_name = f"{repo_name}-full-deps-{timestamp}.tar.gz"
+        archive_path = output_dir_obj / archive_name
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            staging_dir = Path(tmpdir) / "archive-staging"
+            staging_dir.mkdir()
+
+            # Create git bundle
+            bundle_path = staging_dir / "repository.bundle"
+            subprocess.run(
+                ["git", "bundle", "create", str(bundle_path), "--all"],
+                cwd=str(repo_path_obj),
+                check=True,
+                capture_output=True,
+            )
+
+            # Get repository metadata
+            head_result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=str(repo_path_obj),
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            head_sha = head_result.stdout.strip()
+
+            remote_result = subprocess.run(
+                ["git", "remote", "get-url", "origin"],
+                cwd=str(repo_path_obj),
+                capture_output=True,
+                text=True,
+            )
+            remote_url = remote_result.stdout.strip() if remote_result.returncode == 0 else ""
+
+            # Bundle LFS if enabled
+            lfs_object_count = 0
+            if include_lfs:
+                lfs_object_count = self._bundle_lfs_objects(repo_path_obj, staging_dir)
+
+            # Detect and fetch dependencies if enabled
+            dependencies_info = {}
+            if include_dependencies:
+                detector = DependencyDetector(repo_path)
+                languages = detector.detect_languages()
+
+                for language in languages:
+                    if language == LanguageType.PYTHON:
+                        # Fetch Python dependencies
+                        manifest_files = detector.get_manifest_files(language)
+                        if manifest_files:
+                            # Note: PyPIClient() would be used here for actual fetching
+                            parser = PythonManifestParser(str(manifest_files[0]))
+                            deps = parser.parse()
+
+                            # Note: In production, this would actually resolve and download
+                            # For now, we just record what we would fetch
+                            dependencies_info["python"] = {
+                                "manifest_file": manifest_files[0].name,
+                                "dependency_count": len(deps),
+                                "dependencies": [
+                                    {"name": d.name, "version_spec": d.version_spec} for d in deps
+                                ],
+                            }
+
+            # Create manifest
+            manifest = {
+                "type": "full",
+                "timestamp": timestamp,
+                "repository": {
+                    "name": repo_name,
+                    "path": str(repo_path_obj.absolute()),
+                    "remote_url": remote_url,
+                    "head_sha": head_sha,
+                },
+                "archive": {
+                    "filename": archive_name,
+                    "format": "tar.gz",
+                    "bundle_file": "repository.bundle",
+                },
+                "lfs_enabled": include_lfs,
+                "lfs_object_count": lfs_object_count,
+                "dependencies": dependencies_info if dependencies_info else None,
+            }
+
+            # Write manifest
+            manifest_path = staging_dir / "manifest.json"
+            with open(manifest_path, "w") as f:
+                json.dump(manifest, f, indent=2)
+
+            # Also write manifest alongside archive for easy access
+            external_manifest_path = output_dir_obj / (
+                archive_name.replace(".tar.gz", ".manifest.json")
+            )
+            with open(external_manifest_path, "w") as f:
+                json.dump(manifest, f, indent=2)
+
+            # Create archive
+            with tarfile.open(archive_path, "w:gz") as tar:
+                tar.add(bundle_path, arcname="repository.bundle")
+                tar.add(manifest_path, arcname="manifest.json")
+
+                if include_lfs:
+                    lfs_staging = staging_dir / "lfs-objects"
+                    if lfs_staging.exists():
+                        tar.add(lfs_staging, arcname="lfs-objects")
+
+        return archive_path
+
+    def _generate_dependency_manifest(
+        self, language: str, manifest_file: str, resolved_dependencies: List
+    ) -> Dict[str, Any]:
+        """Generate dependency manifest for a language.
+
+        Args:
+            language: Language name (e.g., "python")
+            manifest_file: Name of the manifest file
+            resolved_dependencies: List of resolved dependencies
+
+        Returns:
+            Dictionary with dependency manifest
+        """
+        packages = []
+        for dep in resolved_dependencies:
+            packages.append(
+                {
+                    "name": dep.name,
+                    "version": dep.version,
+                    "filename": dep.filename,
+                }
+            )
+
+        return {
+            "language": language,
+            "manifest_file": manifest_file,
+            "packages": packages,
+        }
+
+    def _generate_offline_install_script(
+        self, language: str, resolved_dependencies: List, output_dir: str
+    ) -> Path:
+        """Generate offline installation script for dependencies.
+
+        Args:
+            language: Language name (e.g., "python")
+            resolved_dependencies: List of resolved dependencies
+            output_dir: Output directory for the script
+
+        Returns:
+            Path to generated script
+        """
+        output_path = Path(output_dir) / f"setup-{language}.sh"
+
+        if language == "python":
+            script_content = """#!/bin/bash
+# Offline Python dependency installation script
+# Generated by repo-cloner
+
+set -e
+
+echo "Installing Python dependencies offline..."
+pip install --no-index --find-links ../dependencies/python -r requirements.txt
+echo "Python dependencies installed successfully!"
+"""
+            output_path.write_text(script_content)
+            output_path.chmod(0o755)
+
+        return output_path
