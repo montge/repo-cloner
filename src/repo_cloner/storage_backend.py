@@ -846,9 +846,9 @@ class AzureBlobBackend(StorageBackend):
             container=self.container, blob=full_blob_name
         )
 
-        # Generate SAS token (requires account_key)
-        if not self.account_key:
-            # Cannot generate SAS without account key
+        # Generate SAS token (requires account_key and account_name)
+        if not self.account_key or not self.account_name:
+            # Cannot generate SAS without account key and account name
             return blob_client.url
 
         sas_token = generate_blob_sas(
