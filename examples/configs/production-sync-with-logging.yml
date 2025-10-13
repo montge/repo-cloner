@@ -1,0 +1,316 @@
+# Production Repository Synchronization Configuration with Logging
+#
+# This configuration demonstrates a production-ready setup with comprehensive
+# logging, error handling, and monitoring integration.
+#
+# Features:
+# - Structured JSON logging for machine parsing
+# - Contextual logging with environment/datacenter/team fields
+# - Log rotation and retention
+# - Multiple source/target configurations
+# - Bidirectional sync support
+# - Conflict resolution strategies
+# - Integration with monitoring systems
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: INFO
+
+  # Log format: json (structured) or plain (human-readable)
+  # Use 'json' for production and log aggregation systems
+  format: json
+
+  # Output destinations
+  output:
+    # Print logs to console (stdout)
+    console: true
+
+    # Write logs to file
+    file: /var/log/repo-cloner/sync.log
+
+  # Log rotation settings (prevents disk space issues)
+  rotation:
+    enabled: true
+    max_size_mb: 100        # Rotate when file reaches 100MB
+    backup_count: 5         # Keep 5 old log files
+    compress: true          # Compress rotated logs with gzip
+
+  # Global context fields included in all log messages
+  # These help filter and correlate logs in monitoring systems
+  context:
+    environment: production
+    datacenter: us-east-1
+    team: platform-engineering
+    application: repo-cloner
+
+  # Integration with external logging systems
+  integrations:
+    # Fluent Bit / Fluentd
+    fluentd:
+      enabled: false
+      host: fluentd.example.com
+      port: 24224
+      tag: repo-cloner
+
+    # AWS CloudWatch Logs
+    cloudwatch:
+      enabled: false
+      log_group: /aws/repo-cloner/production
+      log_stream: sync-operations
+      region: us-east-1
+
+    # Splunk HTTP Event Collector
+    splunk:
+      enabled: false
+      url: https://splunk.example.com:8088
+      token: ${SPLUNK_HEC_TOKEN}
+      index: repo-cloner
+
+# ============================================================================
+# Source Configuration (GitLab)
+# ============================================================================
+sources:
+  - type: gitlab
+    url: https://gitlab.example.com
+    token: ${GITLAB_TOKEN}
+
+    # Groups/namespaces to sync
+    groups:
+      - backend
+      - frontend
+      - infrastructure
+
+    # Exclude specific repositories
+    exclude:
+      - backend/deprecated-*
+      - */archive-*
+
+    # API configuration
+    api:
+      timeout_seconds: 30
+      retry_attempts: 3
+      rate_limit_per_minute: 100
+
+# ============================================================================
+# Target Configuration (GitHub + S3 Backup)
+# ============================================================================
+targets:
+  # Primary target: GitHub
+  - type: github
+    url: https://github.com
+    organization: myorg
+    token: ${GITHUB_TOKEN}
+
+    # Create repositories if they don't exist
+    auto_create: true
+
+    # Repository settings for new repos
+    repository_settings:
+      private: true
+      has_issues: false
+      has_wiki: false
+      auto_init: false
+
+    # API configuration
+    api:
+      timeout_seconds: 30
+      retry_attempts: 3
+
+  # Secondary target: S3 backup
+  - type: s3
+    bucket: myorg-repo-backups
+    region: us-east-1
+    prefix: production/
+    access_key: ${AWS_ACCESS_KEY_ID}
+    secret_key: ${AWS_SECRET_ACCESS_KEY}
+
+    # Archive settings
+    archive_type: incremental  # full or incremental
+    retention_days: 90
+
+# ============================================================================
+# Synchronization Configuration
+# ============================================================================
+sync:
+  # Sync mode: unidirectional or bidirectional
+  mode: unidirectional
+
+  # Direction: source_to_target, target_to_source
+  direction: source_to_target
+
+  # Schedule (cron format): Run daily at 2 AM UTC
+  schedule: "0 2 * * *"
+
+  # Sync strategy
+  strategy: mirror  # mirror (full) or incremental
+
+  # Conflict resolution (for bidirectional mode)
+  conflict_resolution: fail  # fail, source_wins, target_wins
+
+  # LFS support
+  lfs:
+    enabled: true
+    fetch_all: true
+
+  # Repository mapping strategy
+  mapping:
+    strategy: flatten  # flatten, prefix, topics
+    separator: "-"     # For flatten strategy: group-subgroup-repo
+
+  # Concurrent operations
+  concurrency:
+    max_workers: 4
+    timeout_per_repo_seconds: 600
+
+  # Retry configuration
+  retry:
+    enabled: true
+    max_attempts: 3
+    initial_delay_seconds: 2
+    backoff_factor: 2.0
+    max_delay_seconds: 60
+
+# ============================================================================
+# Error Handling & Notifications
+# ============================================================================
+error_handling:
+  # Continue syncing other repos if one fails
+  continue_on_failure: true
+
+  # Send notifications on errors
+  notifications:
+    # Slack webhook
+    slack:
+      enabled: true
+      webhook_url: ${SLACK_WEBHOOK_URL}
+      channel: "#platform-alerts"
+      mention_on_failure: "@platform-oncall"
+
+    # Email (SMTP)
+    email:
+      enabled: false
+      smtp_host: smtp.gmail.com
+      smtp_port: 587
+      smtp_tls: true
+      from: repo-cloner@example.com
+      to:
+        - platform-team@example.com
+      username: ${SMTP_USERNAME}
+      password: ${SMTP_PASSWORD}
+
+    # PagerDuty (for critical failures)
+    pagerduty:
+      enabled: false
+      integration_key: ${PAGERDUTY_KEY}
+      severity: error  # info, warning, error, critical
+
+# ============================================================================
+# Monitoring & Metrics
+# ============================================================================
+monitoring:
+  # Prometheus metrics endpoint
+  prometheus:
+    enabled: true
+    port: 9090
+    path: /metrics
+
+  # Health check endpoint
+  healthcheck:
+    enabled: true
+    port: 8080
+    path: /health
+
+  # Metrics to track
+  metrics:
+    - sync_duration_seconds
+    - sync_success_total
+    - sync_failure_total
+    - repositories_synced_total
+    - commits_synced_total
+    - branches_synced_total
+    - archive_size_bytes
+    - api_requests_total
+    - api_errors_total
+
+# ============================================================================
+# Security & Compliance
+# ============================================================================
+security:
+  # Scan for secrets in logs (prevent token leakage)
+  secret_scanning:
+    enabled: true
+    patterns:
+      - "(?i)token"
+      - "(?i)password"
+      - "(?i)secret"
+      - "(?i)api[_-]?key"
+
+  # Audit logging
+  audit:
+    enabled: true
+    log_file: /var/log/repo-cloner/audit.log
+    include_operations:
+      - clone
+      - push
+      - create_repository
+      - delete_repository
+
+# ============================================================================
+# Repository-Specific Overrides
+# ============================================================================
+repositories:
+  # Critical repository with special handling
+  - source: backend/api-gateway
+    target: myorg/backend-api-gateway
+    sync_strategy: mirror
+    conflict_resolution: fail
+    lfs_enabled: true
+    notifications:
+      slack:
+        mention: "@backend-team"
+    logging:
+      level: DEBUG  # More verbose logging for this repo
+
+  # Large repository with optimizations
+  - source: infrastructure/terraform
+    target: myorg/infrastructure-terraform
+    sync_strategy: incremental
+    lfs_enabled: true
+    timeout_seconds: 1800  # 30 minutes
+    shallow_clone_depth: 50
+
+# ============================================================================
+# Example Usage
+# ============================================================================
+#
+# 1. Local execution:
+#    repo-cloner sync --config production-sync-with-logging.yml
+#
+# 2. With environment variables:
+#    export GITLAB_TOKEN=glpat_xxx
+#    export GITHUB_TOKEN=ghp_xxx
+#    export AWS_ACCESS_KEY_ID=xxx
+#    export AWS_SECRET_ACCESS_KEY=xxx
+#    export SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
+#    repo-cloner sync --config production-sync-with-logging.yml
+#
+# 3. GitHub Actions:
+#    See .github/workflows/sync.yml for automated execution
+#
+# 4. View logs:
+#    # Real-time JSON logs
+#    tail -f /var/log/repo-cloner/sync.log | jq '.'
+#
+#    # Filter by repository
+#    cat /var/log/repo-cloner/sync.log | jq 'select(.repository == "backend-api-gateway")'
+#
+#    # Filter by error level
+#    cat /var/log/repo-cloner/sync.log | jq 'select(.level == "ERROR")'
+#
+#    # Show sync duration stats
+#    cat /var/log/repo-cloner/sync.log | jq 'select(.message == "Repository sync completed") | .duration_seconds'
+#
+# ============================================================================

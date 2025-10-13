@@ -1,0 +1,403 @@
+# Air-Gap Deployment Configuration with Monitoring
+#
+# This configuration demonstrates an air-gap deployment scenario with
+# comprehensive logging, monitoring, and dependency management.
+#
+# Workflow:
+# 1. Clone repositories from source (internet-connected environment)
+# 2. Fetch dependencies (Python, Node.js, Java, etc.)
+# 3. Create archives with dependencies
+# 4. Upload archives to multiple storage backends
+# 5. Download archives in air-gap environment
+# 6. Restore repositories with dependencies
+# 7. Push to internal Git server (optional)
+
+# ============================================================================
+# Logging Configuration (Same for both environments)
+# ============================================================================
+logging:
+  level: INFO
+  format: json
+
+  output:
+    console: true
+    file: /var/log/repo-cloner/air-gap.log
+
+  rotation:
+    enabled: true
+    max_size_mb: 100
+    backup_count: 10
+
+  context:
+    environment: air-gap
+    deployment_zone: secured
+    compliance_level: high
+
+# ============================================================================
+# Phase 1: Archive Creation (Internet-Connected Environment)
+# ============================================================================
+archive_creation:
+  # Source repositories
+  source:
+    type: gitlab
+    url: https://gitlab.com
+    token: ${GITLAB_TOKEN}
+    groups:
+      - backend
+      - frontend
+
+  # Archive settings
+  archive:
+    # Archive type: full or incremental
+    type: full
+
+    # Output directory for archives
+    output_path: /data/archives
+
+    # Include Git LFS objects
+    include_lfs: true
+
+    # Compression level (1-9, higher = smaller but slower)
+    compression_level: 6
+
+  # Dependency fetching
+  dependencies:
+    enabled: true
+
+    # Languages to fetch dependencies for
+    languages:
+      - python
+      - nodejs
+      - java
+      - go
+
+    # Python dependencies
+    python:
+      # Include dev dependencies
+      include_dev: false
+
+      # Prefer wheels over source distributions
+      prefer_wheels: true
+
+      # PyPI configuration
+      pypi:
+        url: https://pypi.org/simple
+        username: ${PYPI_USERNAME}
+        password: ${PYPI_PASSWORD}
+
+    # Node.js dependencies
+    nodejs:
+      # Include dev dependencies
+      include_dev: false
+
+      # Lock file preference
+      lock_file_type: auto  # auto, package-lock, yarn, pnpm
+
+      # npm registry
+      registry:
+        url: https://registry.npmjs.org
+        token: ${NPM_TOKEN}
+
+    # Java dependencies
+    java:
+      # Include test dependencies
+      include_test: false
+
+      # Download sources and javadocs
+      download_sources: true
+      download_javadocs: false
+
+      # Maven settings
+      maven:
+        settings_xml: ~/.m2/settings.xml
+        repository_url: https://repo.maven.apache.org/maven2
+
+    # Go modules
+    go:
+      # Go proxy
+      proxy: https://proxy.golang.org
+      private_patterns: ${GOPRIVATE}
+
+# ============================================================================
+# Phase 2: Storage & Transfer
+# ============================================================================
+storage:
+  # Multiple storage backends for redundancy
+  backends:
+    # Primary: Local filesystem (for USB drive transfer)
+    - type: local
+      name: usb-drive
+      path: /mnt/usb/repo-archives
+      enabled: true
+
+    # Secondary: AWS S3 (for cross-zone transfer)
+    - type: s3
+      name: transfer-bucket
+      bucket: airgap-transfer
+      region: us-east-1
+      access_key: ${AWS_ACCESS_KEY_ID}
+      secret_key: ${AWS_SECRET_ACCESS_KEY}
+      enabled: true
+
+      # Server-side encryption
+      encryption:
+        enabled: true
+        kms_key_id: ${KMS_KEY_ID}
+
+    # Tertiary: Azure Blob (for redundancy)
+    - type: azure
+      name: transfer-container
+      container: airgap-archives
+      account: ${AZURE_STORAGE_ACCOUNT}
+      connection_string: ${AZURE_STORAGE_CONNECTION_STRING}
+      enabled: false
+
+  # Archive naming convention
+  naming:
+    pattern: "{repo_name}-{archive_type}-{timestamp}.tar.gz"
+    timestamp_format: "%Y%m%d-%H%M%S"
+
+  # Retention policy
+  retention:
+    # Keep archives for 90 days
+    days: 90
+
+    # Keep at least N most recent archives
+    min_count: 5
+
+    # Delete older archives automatically
+    auto_cleanup: true
+
+# ============================================================================
+# Phase 3: Archive Restoration (Air-Gap Environment)
+# ============================================================================
+archive_restoration:
+  # Source: Download from storage or use local archives
+  source:
+    # Storage backend to download from
+    storage_type: local
+    storage_path: /mnt/usb/repo-archives
+
+    # Alternatively, use pre-downloaded archives
+    # archive_path: /data/imported-archives
+
+  # Restoration settings
+  restore:
+    # Output directory for restored repositories
+    output_path: /opt/repositories
+
+    # Verify archive integrity before extraction
+    verify_before_restore: true
+
+    # Verify repository after extraction
+    verify_after_restore: true
+
+  # Dependency installation
+  dependencies:
+    # Install dependencies after restoration
+    install: true
+
+    # Offline installation (no internet access)
+    offline_mode: true
+
+    # Generate installation scripts
+    generate_scripts: true
+
+    # Scripts output directory
+    scripts_path: /opt/repository-setup
+
+  # Target Git server (internal)
+  target:
+    type: gitlab  # or github, gitea, bitbucket
+    url: https://git.internal.company.com
+    token: ${INTERNAL_GIT_TOKEN}
+
+    # Auto-create projects if they don't exist
+    auto_create: true
+
+    # Project settings
+    project_settings:
+      visibility: internal
+      issues_enabled: true
+      wiki_enabled: false
+
+# ============================================================================
+# Monitoring & Validation
+# ============================================================================
+monitoring:
+  # Archive manifest validation
+  manifest_validation:
+    enabled: true
+    checks:
+      - manifest_exists
+      - bundle_integrity
+      - lfs_objects_present
+      - dependency_manifests_valid
+      - checksums_match
+
+  # Integrity checks
+  integrity:
+    # SHA256 checksum verification
+    verify_checksums: true
+
+    # Git bundle verification
+    verify_bundles: true
+
+    # LFS object verification
+    verify_lfs: true
+
+  # Metrics collection
+  metrics:
+    enabled: true
+    export_format: json
+    output_file: /var/log/repo-cloner/metrics.json
+
+    # Track these metrics
+    track:
+      - archive_size_bytes
+      - archive_creation_duration_seconds
+      - dependency_count
+      - dependency_fetch_duration_seconds
+      - archive_verification_success
+      - restoration_duration_seconds
+      - repositories_restored_total
+
+  # Alerting
+  alerts:
+    # Alert on checksum mismatch
+    - name: checksum_mismatch
+      condition: checksum_verification == false
+      severity: critical
+      action: log_and_notify
+
+    # Alert on large archive size
+    - name: large_archive
+      condition: archive_size_mb > 10000
+      severity: warning
+      action: log
+
+    # Alert on slow operations
+    - name: slow_operation
+      condition: operation_duration_seconds > 3600
+      severity: warning
+      action: log
+
+# ============================================================================
+# Security & Compliance
+# ============================================================================
+security:
+  # Archive encryption
+  encryption:
+    enabled: true
+    algorithm: AES-256
+    key_file: /secure/archive-encryption.key
+
+  # Access control
+  access_control:
+    # Require authentication for all operations
+    require_auth: true
+
+    # Allowed users/groups
+    allowed_users:
+      - admin
+      - platform-team
+
+  # Audit logging
+  audit:
+    enabled: true
+    log_file: /var/log/repo-cloner/audit.log
+
+    # Log these events
+    events:
+      - archive_created
+      - archive_uploaded
+      - archive_downloaded
+      - archive_extracted
+      - repository_pushed
+      - dependency_installed
+
+  # Compliance checks
+  compliance:
+    # ITAR compliance mode
+    itar_mode: false
+
+    # Data residency requirements
+    data_residency:
+      allowed_regions:
+        - us-east-1
+        - us-west-2
+
+    # Export control
+    export_control:
+      enabled: false
+      classification: unclassified
+
+# ============================================================================
+# Repository-Specific Configuration
+# ============================================================================
+repositories:
+  # Critical application with full dependency tree
+  - source: backend/core-api
+    archive_type: full
+    dependencies:
+      python:
+        include_transitive: true
+        max_depth: unlimited
+      nodejs:
+        include_transitive: true
+    verification:
+      strict: true
+    target: internal/backend/core-api
+
+  # Large repository with incremental archives
+  - source: infrastructure/terraform
+    archive_type: incremental
+    base_archive: infrastructure-terraform-full-20250101.tar.gz
+    lfs_enabled: true
+    compression_level: 9
+
+# ============================================================================
+# Example Workflow
+# ============================================================================
+#
+# Phase 1: Archive Creation (Internet-connected)
+# -----------------------------------------------
+# 1. Clone repositories from GitLab
+#    export GITLAB_TOKEN=glpat_xxx
+#    export SOURCE_REPO_URL=https://gitlab.com/myorg/backend-api
+#    python examples/workflows/air-gap-archive-create.py
+#
+# 2. Verify archives
+#    repo-cloner archive verify --archive ./archives/*.tar.gz
+#
+# 3. Transfer archives (USB drive, S3, etc.)
+#    cp ./archives/*.tar.gz /mnt/usb/repo-archives/
+#
+# Phase 2: Archive Restoration (Air-gap)
+# ----------------------------------------
+# 1. Import archives
+#    cp /mnt/usb/repo-archives/*.tar.gz /data/imported-archives/
+#
+# 2. Restore repositories
+#    export ARCHIVE_PATH=/data/imported-archives/backend-api-full-20250113.tar.gz
+#    export TARGET_REPO_URL=https://git.internal.company.com/backend/api
+#    export TARGET_TOKEN=internal_token_xxx
+#    python examples/workflows/air-gap-archive-restore.py
+#
+# 3. Verify installation
+#    cd /opt/repositories/backend-api
+#    git log --oneline -10
+#    ls dependencies/python/packages/
+#
+# Monitoring & Logs
+# ------------------
+# 1. View JSON logs
+#    tail -f /var/log/repo-cloner/air-gap.log | jq '.'
+#
+# 2. Check metrics
+#    cat /var/log/repo-cloner/metrics.json | jq '.archive_size_bytes'
+#
+# 3. Audit trail
+#    cat /var/log/repo-cloner/audit.log | grep archive_created
+#
+# ============================================================================
