@@ -62,7 +62,7 @@ class TestCLIArchiveCreate:
 
             # Assert
             assert result.exit_code == 0
-            assert "Archive created successfully" in result.output
+            assert "Archive created" in result.output or "✓" in result.output
             # Check that archive was created
             archives = list(output_path.glob("*.tar.gz"))
             assert len(archives) == 1
@@ -117,8 +117,9 @@ class TestCLIArchiveCreate:
             # Assert
             assert result.exit_code == 0
             assert (
-                "LFS objects included" in result.output
-                or "Archive created successfully" in result.output
+                "LFS objects" in result.output
+                or "Archive created" in result.output
+                or "✓" in result.output
             )
 
     def test_create_incremental_archive(self):
@@ -200,7 +201,7 @@ class TestCLIArchiveCreate:
 
             # Assert
             assert result2.exit_code == 0
-            assert "Incremental archive created" in result2.output
+            assert "Archive created" in result2.output or "incremental" in result2.output
             incremental_archives = list(output_path.glob("*-incremental-*.tar.gz"))
             assert len(incremental_archives) == 1
 

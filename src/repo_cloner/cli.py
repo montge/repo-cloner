@@ -1,6 +1,7 @@
 """Command-line interface for repo-cloner."""
 
 import sys
+import time
 from pathlib import Path
 
 import click
@@ -8,17 +9,72 @@ import click
 from .archive_manager import ArchiveManager
 from .auth_manager import AuthManager
 from .git_client import GitClient
+from .logging_config import configure_logging, get_logger
 from .storage_backend import LocalFilesystemBackend
+
+
+# Helper functions for colored output
+def echo_success(message, quiet=False):
+    """Echo success message in green."""
+    if not quiet:
+        click.secho(f"✅ {message}", fg="green")
+
+
+def echo_error(message):
+    """Echo error message in red."""
+    click.secho(f"❌ {message}", fg="red", err=True)
+
+
+def echo_info(message, quiet=False):
+    """Echo info message in blue."""
+    if not quiet:
+        click.secho(message, fg="blue")
+
+
+def echo_warning(message, quiet=False):
+    """Echo warning message in yellow."""
+    if not quiet:
+        click.secho(f"⚠️  {message}", fg="yellow")
+
+
+def echo_step(step_num, total_steps, message, quiet=False):
+    """Echo step progress message."""
+    if not quiet:
+        click.secho(f"[{step_num}/{total_steps}] {message}", fg="cyan", bold=True)
+
+
+def format_duration(seconds):
+    """Format duration in human-readable format."""
+    if seconds < 1:
+        return f"{seconds*1000:.0f}ms"
+    elif seconds < 60:
+        return f"{seconds:.1f}s"
+    else:
+        minutes = int(seconds // 60)
+        secs = int(seconds % 60)
+        return f"{minutes}m {secs}s"
 
 
 @click.group()
 @click.version_option(version="0.1.0")
-def main():
+@click.option("--quiet", "-q", is_flag=True, help="Suppress non-essential output")
+@click.option(
+    "--json-logs", is_flag=True, help="Enable JSON-formatted structured logging to file"
+)
+@click.pass_context
+def main(ctx, quiet, json_logs):
     """Universal Repository Cloner & Synchronization Tool.
 
     Clone, synchronize, and archive Git repositories across platforms.
     """
-    pass
+    # Store global options in context for subcommands
+    ctx.ensure_object(dict)
+    ctx.obj["QUIET"] = quiet
+    ctx.obj["JSON_LOGS"] = json_logs
+
+    # Configure logging if JSON logs are enabled
+    if json_logs:
+        configure_logging(level="INFO", json_format=True)
 
 
 @main.command()
@@ -43,13 +99,18 @@ def main():
 )
 @click.option("--dry-run", is_flag=True, help="Show what would be done without executing")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
-def sync(source, target, local_path, github_token, gitlab_token, dry_run, verbose):
+@click.pass_context
+def sync(ctx, source, target, local_path, github_token, gitlab_token, dry_run, verbose):
     """Clone from source and push to target (GitLab → GitHub migration)."""
+    quiet = ctx.obj.get("QUIET", False)
+    start_time = time.time()
 
-    if verbose:
-        click.echo(f"Source: {source}")
-        click.echo(f"Target: {target}")
-        click.echo(f"Dry-run: {dry_run}")
+    if not quiet:
+        echo_info("\n🚀 Starting repository synchronization", quiet)
+        if verbose:
+            click.echo(f"   Source: {source}")
+            click.echo(f"   Target: {target}")
+            click.echo(f"   Dry-run: {dry_run}")
 
     # Initialize clients
     git_client = GitClient()
@@ -60,7 +121,7 @@ def sync(source, target, local_path, github_token, gitlab_token, dry_run, verbos
         authenticated_source = auth_manager.inject_credentials(source)
         authenticated_target = auth_manager.inject_credentials(target)
     except ValueError as e:
-        click.echo(f"❌ Authentication error: {e}", err=True)
+        echo_error(f"Authentication error: {e}")
         sys.exit(1)
 
     # Determine local path
@@ -69,36 +130,47 @@ def sync(source, target, local_path, github_token, gitlab_token, dry_run, verbos
         repo_name = source.rstrip("/").split("/")[-1].replace(".git", "")
         local_path = f"/tmp/repo-cloner/{repo_name}"
 
-    if verbose:
-        click.echo(f"Local path: {local_path}")
+    if verbose and not quiet:
+        click.echo(f"   Local path: {local_path}\n")
 
     # Step 1: Clone from source
-    click.echo("📥 Cloning from source...")
+    echo_step(1, 2, "📥 Cloning from source...", quiet)
+    clone_start = time.time()
     clone_result = git_client.clone_mirror(authenticated_source, local_path, dry_run=dry_run)
 
     if not clone_result.success:
-        click.echo(f"❌ Clone failed: {clone_result.error_message}", err=True)
+        echo_error(f"Clone failed: {clone_result.error_message}")
         sys.exit(1)
 
+    clone_duration = time.time() - clone_start
     if dry_run:
-        click.echo(f"✅ {clone_result.message}")
+        echo_success(clone_result.message, quiet)
     else:
-        click.echo(f"✅ Cloned {clone_result.branches_count} branches to {local_path}")
+        echo_success(
+            f"Cloned {clone_result.branches_count} branches ({format_duration(clone_duration)})",
+            quiet,
+        )
 
     # Step 2: Push to target
-    click.echo("📤 Pushing to target...")
+    echo_step(2, 2, "📤 Pushing to target...", quiet)
+    push_start = time.time()
     push_result = git_client.push_mirror(local_path, authenticated_target, dry_run=dry_run)
 
     if not push_result.success:
-        click.echo(f"❌ Push failed: {push_result.error_message}", err=True)
+        echo_error(f"Push failed: {push_result.error_message}")
         sys.exit(1)
 
+    push_duration = time.time() - push_start
     if dry_run:
-        click.echo(f"✅ {push_result.message}")
+        echo_success(push_result.message, quiet)
     else:
-        click.echo(f"✅ Successfully pushed to {target}")
+        echo_success(f"Successfully pushed to target ({format_duration(push_duration)})", quiet)
 
-    click.echo("\n🎉 Synchronization complete!")
+    # Summary
+    total_duration = time.time() - start_time
+    if not quiet:
+        click.echo()
+        echo_success(f"🎉 Synchronization complete! (Total: {format_duration(total_duration)})")
 
 
 @main.command()
@@ -143,7 +215,8 @@ def archive():
 )
 @click.option("--include-lfs", is_flag=True, help="Include Git LFS objects in the archive")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
-def create(repo_path, output_path, archive_type, parent_archive, include_lfs, verbose):
+@click.pass_context
+def create(ctx, repo_path, output_path, archive_type, parent_archive, include_lfs, verbose):
     """Create an archive of a git repository.
 
     Examples:
@@ -157,28 +230,29 @@ def create(repo_path, output_path, archive_type, parent_archive, include_lfs, ve
         repo-cloner archive create --repo-path /path/to/repo --output-path /archives \\
             --type incremental --parent-archive /archives/repo-full-20251010.tar.gz
     """
+    quiet = ctx.obj.get("QUIET", False)
     manager = ArchiveManager()
+    start_time = time.time()
 
-    if verbose:
-        click.echo(f"Repository: {repo_path}")
-        click.echo(f"Output path: {output_path}")
-        click.echo(f"Archive type: {archive_type}")
-        click.echo(f"Include LFS: {include_lfs}")
+    if verbose and not quiet:
+        click.echo(f"\n📋 Archive Configuration:")
+        click.echo(f"   Repository: {repo_path}")
+        click.echo(f"   Output path: {output_path}")
+        click.echo(f"   Archive type: {archive_type}")
+        click.echo(f"   Include LFS: {include_lfs}\n")
 
     try:
         if archive_type == "full":
-            click.echo("📦 Creating full archive...")
+            echo_info("📦 Creating full archive...", quiet)
             result = manager.create_full_archive(
                 repo_path=repo_path, output_path=output_path, include_lfs=include_lfs
             )
         else:  # incremental
             if parent_archive is None:
-                click.echo(
-                    "❌ Error: --parent-archive is required for incremental archives", err=True
-                )
+                echo_error("Error: --parent-archive is required for incremental archives")
                 sys.exit(1)
 
-            click.echo("📦 Creating incremental archive...")
+            echo_info("📦 Creating incremental archive...", quiet)
             result = manager.create_incremental_archive(
                 repo_path=repo_path,
                 output_path=output_path,
@@ -186,23 +260,27 @@ def create(repo_path, output_path, archive_type, parent_archive, include_lfs, ve
                 include_lfs=include_lfs,
             )
 
+        duration = time.time() - start_time
         if result["success"]:
-            click.echo(f"✅ Archive created successfully: {result['archive_path']}")
-            if verbose:
-                click.echo(f"Archive type: {result['manifest']['type']}")
+            archive_size = Path(result["archive_path"]).stat().st_size / (1024 * 1024)
+            echo_success(
+                f"Archive created: {Path(result['archive_path']).name} "
+                f"({archive_size:.1f} MB, {format_duration(duration)})",
+                quiet,
+            )
+            if verbose and not quiet:
+                click.echo(f"   Type: {result['manifest']['type']}")
                 if include_lfs and result["manifest"].get("lfs_object_count", 0) > 0:
-                    click.echo(f"LFS objects included: {result['manifest']['lfs_object_count']}")
-            if archive_type == "incremental":
-                click.echo("✅ Incremental archive created successfully")
+                    click.echo(f"   LFS objects: {result['manifest']['lfs_object_count']}")
         else:
-            click.echo("❌ Failed to create archive", err=True)
+            echo_error("Failed to create archive")
             sys.exit(1)
 
     except FileNotFoundError as e:
-        click.echo(f"❌ Error: {e}", err=True)
+        echo_error(f"Error: {e}")
         sys.exit(1)
     except Exception as e:
-        click.echo(f"❌ Unexpected error: {e}", err=True)
+        echo_error(f"Unexpected error: {e}")
         sys.exit(1)
 
 
