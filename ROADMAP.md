@@ -1834,6 +1834,300 @@ aiofiles>=23.0.0        # Async file I/O
 
 ---
 
+## Sprint 10: Production-Ready Workflows & User-Friendly Logging (Week 21-22)
+
+### Goals
+- Create comprehensive example workflows with structured logging
+- Enhance CLI output with user-friendly messages and progress indicators
+- Provide end-to-end workflow documentation for all use cases
+- Demonstrate logging integration in both direct connection and air-gap scenarios
+
+### User Stories
+- **US-10.1**: As a user, I can see clear progress indicators during long-running operations
+- **US-10.2**: As a user, I have example workflows that show best practices for logging
+- **US-10.3**: As a user, I can understand what is syncing through user-friendly CLI output
+- **US-10.4**: As a user, I have end-to-end documentation for common sync scenarios
+- **US-10.5**: As a DevOps engineer, I can integrate structured logs with monitoring systems
+
+### Deliverables
+
+#### 1. Example Workflow Scripts
+- [ ] `examples/workflows/gitlab-to-github-sync.py`
+  - Complete GitLab → GitHub synchronization workflow
+  - Structured logging with session context
+  - Error handling with retry logic
+  - Progress reporting for each repository
+  - Example output showing both JSON logs and user-friendly messages
+
+- [ ] `examples/workflows/bidirectional-sync.py`
+  - Two-way sync between GitLab and GitHub
+  - Conflict detection logging
+  - Resolution strategy examples
+  - State persistence and recovery
+
+- [ ] `examples/workflows/air-gap-archive-create.py`
+  - Archive creation workflow for air-gap deployment
+  - Progress tracking for archive creation
+  - Dependency fetching with progress
+  - Storage backend upload with status updates
+  - Verification steps with logging
+
+- [ ] `examples/workflows/air-gap-archive-restore.py`
+  - Archive restoration workflow in air-gap environment
+  - Download from storage with progress
+  - Archive validation with integrity checks
+  - Repository restoration with logging
+  - Dependency installation verification
+
+- [ ] `examples/workflows/multi-target-sync.py`
+  - Sync to multiple targets simultaneously (GitHub + S3)
+  - Parallel operations with contextual logging
+  - Error handling for partial failures
+  - Summary report generation
+
+#### 2. Enhanced CLI Output
+- [ ] Progress indicators for long operations
+  - Repository clone progress
+  - Archive creation progress
+  - Upload/download progress with percentage
+  - Multi-repository batch operations
+
+- [ ] User-friendly terminal output
+  - Color-coded output (success=green, error=red, warning=yellow)
+  - Clear status messages ("✓ Synced", "✗ Failed", "⚠ Conflict")
+  - Summary tables at completion
+  - Operation timing information
+
+- [ ] Dual-mode output system
+  - JSON logs for machine parsing (goes to log file)
+  - Human-readable output for terminal (goes to stdout)
+  - Configurable via `--json-logs` and `--quiet` flags
+
+#### 3. Configuration Examples with Logging
+- [ ] `examples/configs/production-sync-with-logging.yml`
+  ```yaml
+  # Logging configuration
+  logging:
+    level: INFO              # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    format: json             # json or plain
+    output:
+      console: true          # Print to stdout
+      file: /var/log/repo-cloner/sync.log
+    rotation:
+      enabled: true
+      max_size_mb: 100
+      backup_count: 5
+
+    # Context fields to include in all logs
+    context:
+      environment: production
+      datacenter: us-east-1
+      team: platform
+
+  # Sync configuration
+  sources:
+    - type: gitlab
+      url: https://gitlab.example.com
+      token: ${GITLAB_TOKEN}
+
+  targets:
+    - type: github
+      url: https://github.com
+      token: ${GITHUB_TOKEN}
+  ```
+
+- [ ] `examples/configs/air-gap-with-monitoring.yml`
+  - Air-gap workflow with comprehensive logging
+  - Integration with log aggregation systems
+  - Alert thresholds configuration
+
+#### 4. Comprehensive Workflow Documentation
+- [ ] `docs/WORKFLOWS.md` - End-to-end workflow guide
+  - **Direct Connection Workflows:**
+    - GitLab → GitHub sync
+    - Bidirectional sync
+    - Multi-target sync
+    - Expected log output at each step
+    - Troubleshooting tips
+
+  - **Air-Gap Workflows:**
+    - Archive creation (with dependencies)
+    - Upload to storage backends
+    - Download in air-gap environment
+    - Restoration and verification
+    - Expected log output for each phase
+
+  - **Monitoring & Operations:**
+    - Log aggregation setup (ELK, Splunk, CloudWatch)
+    - Setting up alerts
+    - Performance monitoring
+    - Error rate tracking
+
+- [ ] `docs/LOGGING.md` - Logging integration guide
+  - Structured logging overview
+  - Log format specification (JSON schema)
+  - Contextual logging examples
+  - Integration with monitoring systems
+  - Log analysis examples (jq queries, grep patterns)
+  - Common log patterns and their meanings
+
+#### 5. CLI Enhancements
+- [ ] Update `src/repo_cloner/cli.py` with:
+  - Progress callback support
+  - Color output using `click.style()` or `colorama`
+  - Summary report generation
+  - Operation timing tracking
+  - User-friendly error messages
+  - `--quiet` flag for minimal output
+  - `--json-logs` flag for JSON-only output
+
+#### 6. Troubleshooting Guide
+- [ ] `docs/TROUBLESHOOTING.md` updates
+  - **Log-Based Troubleshooting:**
+    - How to read JSON logs
+    - Common error patterns in logs
+    - Using jq to filter logs
+    - Correlating logs across operations
+
+  - **Example Scenarios:**
+    - "Sync failed - how to diagnose from logs"
+    - "Archive creation incomplete - checking logs"
+    - "Network errors - identifying retryable vs permanent"
+    - "Permission denied - auth troubleshooting via logs"
+
+### Test Strategy (TDD)
+
+**Write tests FIRST:**
+
+1. **Test**: `test_workflow_gitlab_to_github_executes_successfully()`
+   - Mock GitLab and GitHub APIs
+   - **Then**: Implement gitlab-to-github-sync.py workflow
+   - Verify logging output includes all expected context
+
+2. **Test**: `test_workflow_air_gap_archive_create_with_progress()`
+   - Mock archive manager and storage backend
+   - **Then**: Implement air-gap-archive-create.py workflow
+   - Verify progress indicators appear in output
+
+3. **Test**: `test_cli_output_has_color_codes_when_tty()`
+   - **Then**: Implement color output for terminal
+   - Verify colors are disabled when piped
+
+4. **Test**: `test_cli_progress_indicator_updates_correctly()`
+   - **Then**: Implement progress indicators
+   - Verify percentage and status updates
+
+5. **Test**: `test_cli_summary_report_includes_timing()`
+   - **Then**: Implement summary report generation
+   - Verify operation timing is tracked and displayed
+
+6. **Test**: `test_json_logs_parseable_by_jq()`
+   - Generate sample logs
+   - **Then**: Ensure JSON is valid and contains expected fields
+   - Verify jq queries work correctly
+
+7. **Test**: `test_quiet_mode_suppresses_progress_output()`
+   - **Then**: Implement --quiet flag
+   - Verify only errors are shown
+
+8. **Integration Test**: `test_full_workflow_with_logging_end_to_end()`
+   - Run complete sync workflow
+   - Verify both JSON logs and terminal output
+   - Check log file contains structured data
+
+### Technical Decisions
+
+**Progress Indicators:**
+- Use `tqdm` library for progress bars
+- Support both terminal (with bar) and non-terminal (log-based) output
+- Progress callbacks passed through operation chain
+
+**Color Output:**
+- Use `click.style()` for terminal colors (already using click for CLI)
+- Auto-detect TTY vs piped output
+- Respect `NO_COLOR` environment variable
+- Disable colors in CI/CD environments
+
+**Log Aggregation Integration:**
+- JSON logs are already structured (from Sprint 8)
+- Provide example Fluent Bit, Logstash, CloudWatch Agent configs
+- Document log retention policies
+
+**Documentation Format:**
+- Markdown with code examples
+- Mermaid diagrams for workflows
+- Collapsible sections for expected output
+- Copy-pasteable command examples
+
+### Definition of Done
+
+- ✅ Example workflows exist for all major use cases (5 workflows)
+- ✅ Example workflows include comprehensive logging
+- ✅ CLI output is user-friendly with progress indicators
+- ✅ Color-coded output works in terminal
+- ✅ `--quiet` and `--json-logs` flags work correctly
+- ✅ Summary reports show timing and success/failure counts
+- ✅ WORKFLOWS.md provides end-to-end guidance
+- ✅ LOGGING.md explains integration with monitoring systems
+- ✅ TROUBLESHOOTING.md includes log-based diagnostics
+- ✅ Configuration examples include logging setup
+- ✅ All tests pass (unit + integration)
+- ✅ Documentation is clear and comprehensive
+
+### Expected Output Examples
+
+**Terminal Output (User-Friendly):**
+```
+🚀 Starting GitLab → GitHub Synchronization
+
+📁 Discovering repositories...
+   ✓ Found 15 repositories in gitlab.com/backend group
+
+📥 Syncing repositories:
+   [1/15] backend-auth-service... ✓ (42 commits, 3 branches, 2.3s)
+   [2/15] backend-api-gateway... ✓ (128 commits, 5 branches, 4.1s)
+   [3/15] backend-user-service... ✗ Failed: Network timeout (will retry)
+   [3/15] backend-user-service... ✓ (67 commits, 4 branches, 3.8s) [retry 1/3]
+   ...
+   [15/15] backend-notification... ✓ (91 commits, 3 branches, 3.2s)
+
+✅ Synchronization complete!
+
+Summary:
+  Total repositories: 15
+  Successful: 15
+  Failed: 0
+  Total commits synced: 1,847
+  Total time: 1m 42s
+```
+
+**JSON Log (Machine-Readable):**
+```json
+{
+  "timestamp": "2025-10-13T15:30:00.123",
+  "level": "INFO",
+  "logger": "repo_cloner.workflows.gitlab_to_github",
+  "message": "Synchronization session started",
+  "session_id": "sync-20251013-153000",
+  "source": "gitlab.com/backend",
+  "target": "github.com/myorg"
+}
+{
+  "timestamp": "2025-10-13T15:30:01.456",
+  "level": "INFO",
+  "logger": "repo_cloner.sync_engine",
+  "message": "Repository sync completed",
+  "session_id": "sync-20251013-153000",
+  "repository": "backend-auth-service",
+  "commits_synced": 42,
+  "branches_synced": 3,
+  "duration_seconds": 2.3,
+  "status": "success"
+}
+```
+
+---
+
 ## Post-Sprint: Future Enhancements
 
 ### Future Considerations (Beyond Sprint 9)
