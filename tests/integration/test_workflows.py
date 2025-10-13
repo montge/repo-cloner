@@ -4,13 +4,9 @@ These tests verify that the example workflow scripts work correctly with mocked
 external dependencies (GitLab API, GitHub API, Git operations).
 """
 
-import subprocess
-import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 class TestGitLabToGitHubSyncWorkflow:
@@ -56,32 +52,25 @@ class TestGitLabToGitHubSyncWorkflow:
             "branches_synced": 3,
         }
 
-        # Test with environment variables
-        env = {
-            "GITLAB_URL": "https://gitlab.com",
-            "GITLAB_TOKEN": "glpat_test123",
-            "GITLAB_GROUP": "test-group",
-            "GITHUB_ORG": "test-org",
-            "GITHUB_TOKEN": "ghp_test456",
-        }
-
-        workflow_path = Path(__file__).parent.parent.parent / "examples" / "workflows" / "gitlab-to-github-sync.py"
-
-        # Note: This would execute the script in a subprocess
-        # For true integration testing, we'd run: subprocess.run([sys.executable, str(workflow_path)], env=env)
-        # But for this test, we verify the components work correctly when mocked
-
         # Verify the workflow components can be initialized
+        # In the real workflow, these would be called with environment variables:
+        # GITLAB_URL, GITLAB_TOKEN, GITLAB_GROUP, GITHUB_ORG, GITHUB_TOKEN
+        # The workflow script would be at: examples/workflows/gitlab-to-github-sync.py
         assert mock_gitlab_client.called or True  # Workflow would call this
         assert mock_github_client.called or True  # Workflow would call this
 
     @patch.dict("os.environ", {}, clear=True)
     def test_workflow_fails_without_required_env_vars(self):
         """Test that workflow fails gracefully when required env vars are missing."""
-        workflow_path = Path(__file__).parent.parent.parent / "examples" / "workflows" / "gitlab-to-github-sync.py"
-
         # This test verifies the script validates environment variables
         # The actual script would exit with sys.exit(1) when env vars are missing
+        # Workflow script: examples/workflows/gitlab-to-github-sync.py
+        workflow_path = (
+            Path(__file__).parent.parent.parent
+            / "examples"
+            / "workflows"
+            / "gitlab-to-github-sync.py"
+        )
         assert workflow_path.exists()
 
     @patch("repo_cloner.logging_config.configure_logging")
@@ -178,9 +167,14 @@ class TestAirGapArchiveCreateWorkflow:
     @patch.dict("os.environ", {"SOURCE_REPO_URL": ""}, clear=True)
     def test_workflow_validates_required_config(self):
         """Test that workflow validates required configuration."""
-        workflow_path = Path(__file__).parent.parent.parent / "examples" / "workflows" / "air-gap-archive-create.py"
-
         # Workflow should validate SOURCE_REPO_URL is provided
+        # Workflow script: examples/workflows/air-gap-archive-create.py
+        workflow_path = (
+            Path(__file__).parent.parent.parent
+            / "examples"
+            / "workflows"
+            / "air-gap-archive-create.py"
+        )
         assert workflow_path.exists()
 
 
@@ -240,8 +234,7 @@ class TestAirGapArchiveRestoreWorkflow:
 
             # Simulate push operation
             result = mock_git_instance.push_mirror(
-                f"{tmpdir}/restored/repository",
-                "https://github.com/org/repo.git"
+                f"{tmpdir}/restored/repository", "https://github.com/org/repo.git"
             )
             assert result.success is True
 
@@ -257,10 +250,7 @@ class TestAirGapArchiveRestoreWorkflow:
             mock_backend_instance.download_archive.return_value = None  # Side effect: creates file
 
             # Simulate download
-            mock_backend_instance.download_archive(
-                "repo-full-20251013.tar.gz",
-                str(download_path)
-            )
+            mock_backend_instance.download_archive("repo-full-20251013.tar.gz", str(download_path))
 
             # Verify download was called
             mock_backend_instance.download_archive.assert_called_once()
@@ -299,7 +289,7 @@ class TestWorkflowLoggingIntegration:
         mock_configure_logging.return_value = mock_logger
 
         # Simulate workflow logging configuration
-        logger = mock_configure_logging(level="INFO", json_format=True, log_file="/tmp/test.log")
+        _ = mock_configure_logging(level="INFO", json_format=True, log_file="/tmp/test.log")
 
         # Verify logging calls
         assert mock_configure_logging.called
@@ -307,7 +297,7 @@ class TestWorkflowLoggingIntegration:
     @patch("repo_cloner.logging_config.log_context")
     def test_workflows_use_log_context(self, mock_log_context):
         """Test that workflows use log_context for hierarchical logging."""
-        mock_context_manager = MagicMock()
+        _ = MagicMock()  # mock_context_manager placeholder
         mock_log_context.return_value.__enter__ = MagicMock()
         mock_log_context.return_value.__exit__ = MagicMock()
 

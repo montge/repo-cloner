@@ -9,7 +9,7 @@ import click
 from .archive_manager import ArchiveManager
 from .auth_manager import AuthManager
 from .git_client import GitClient
-from .logging_config import configure_logging, get_logger
+from .logging_config import configure_logging
 from .storage_backend import LocalFilesystemBackend
 
 
@@ -58,9 +58,7 @@ def format_duration(seconds):
 @click.group()
 @click.version_option(version="0.1.0")
 @click.option("--quiet", "-q", is_flag=True, help="Suppress non-essential output")
-@click.option(
-    "--json-logs", is_flag=True, help="Enable JSON-formatted structured logging to file"
-)
+@click.option("--json-logs", is_flag=True, help="Enable JSON-formatted structured logging to file")
 @click.pass_context
 def main(ctx, quiet, json_logs):
     """Universal Repository Cloner & Synchronization Tool.
@@ -235,7 +233,7 @@ def create(ctx, repo_path, output_path, archive_type, parent_archive, include_lf
     start_time = time.time()
 
     if verbose and not quiet:
-        click.echo(f"\n📋 Archive Configuration:")
+        click.echo("\n📋 Archive Configuration:")
         click.echo(f"   Repository: {repo_path}")
         click.echo(f"   Output path: {output_path}")
         click.echo(f"   Archive type: {archive_type}")
