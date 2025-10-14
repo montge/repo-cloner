@@ -53,6 +53,14 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
 - **FR-2.5**: Support for both cloud and on-premise instances:
   - GitLab: gitlab.com and self-hosted GitLab
   - GitHub: github.com and GitHub Enterprise Server
+- **FR-2.6**: Support for custom SSL/TLS certificates and enterprise security infrastructure:
+  - Accept custom CA (Certificate Authority) certificates for self-signed or internal CAs
+  - Support enterprise security infrastructure with SSL/TLS inspection (man-in-the-middle certificates)
+  - Allow certificate bundle configuration via environment variables or files
+  - Validate certificates against custom trust stores
+  - Provide options to disable certificate verification (for development/testing only)
+  - Support PEM and DER certificate formats
+  - Handle certificate chains and intermediate certificates
 
 ### FR-3: Synchronization
 - **FR-3.1**: Keep cloned repositories in sync with source repositories (any platform)
@@ -234,6 +242,8 @@ A flexible tool to clone and synchronize Git repositories between GitLab (self-h
 - **NFR-3.3**: Support for credential rotation without code changes
 - **NFR-3.4**: Audit trail of sync operations
 - **NFR-3.5**: Comply with enterprise security policies
+- **NFR-3.6**: Support SSL/TLS certificate validation with custom trust stores
+- **NFR-3.7**: Work correctly in enterprise environments with SSL/TLS inspection proxies
 
 ### NFR-4: Maintainability
 - **NFR-4.1**: Well-documented codebase with inline comments

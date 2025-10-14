@@ -143,11 +143,22 @@ python -m repo_cloner clone \
   --source-token $SOURCE_TOKEN \
   --target-token $TARGET_TOKEN
 
+# Clone with custom CA certificate (for enterprise environments)
+python -m repo_cloner clone \
+  --source https://gitlab.example.com/group/repo \
+  --target https://github.com/org/repo \
+  --source-token $SOURCE_TOKEN \
+  --target-token $TARGET_TOKEN \
+  --ca-cert /path/to/corporate-ca-bundle.pem
+
 # Sync from configuration file
 python -m repo_cloner sync --config config.yml
 
 # Bidirectional sync
 python -m repo_cloner sync --config config.yml --bidirectional
+
+# Sync with custom certificate (for environments with SSL/TLS inspection)
+python -m repo_cloner sync --config config.yml --ca-cert /etc/ssl/certs/enterprise-ca.pem
 
 # Export to full archive
 python -m repo_cloner archive create \
@@ -245,6 +256,18 @@ GitLab supports nested groups (e.g., `backend/auth/service`), but GitHub has fla
 - GitLab: Personal Access Token (PAT) preferred, username/password for legacy
 - GitHub: Personal Access Token or GitHub App credentials
 - Credentials via environment variables only (never logged or stored in plain text)
+
+### SSL/TLS Certificate Handling
+For enterprise environments with custom Certificate Authorities (CAs) or security infrastructure with SSL/TLS inspection:
+
+- **Custom CA Certificates**: Support for custom CA certificate bundles in PEM format
+- **Environment Variables**: Use `SSL_CERT_FILE` or `REQUESTS_CA_BUNDLE` for certificate paths
+- **Git Configuration**: Set `GIT_SSL_CAINFO` for Git operations with custom certificates
+- **API Client Configuration**: Configure `requests.Session()` with custom `verify` parameter
+- **Certificate Chain Support**: Handle intermediate certificates and full certificate chains
+- **Enterprise Security**: Works with SSL/TLS inspection proxies (e.g., corporate security infrastructure)
+- **Verification Control**: Option to disable verification for development (with security warnings)
+- **Default Behavior**: Uses system trust store when no custom certificates provided
 
 ### Synchronization Strategy
 - **Full Mirror**: Use `git push --mirror` to overwrite all refs
@@ -380,6 +403,18 @@ targets:
 
 # Mapping configuration
 mapping_strategy: flatten  # flatten, prefix, topics, custom
+
+# SSL/TLS Certificate Configuration (optional)
+# For enterprise environments with custom CAs or SSL/TLS inspection
+certificates:
+  # Custom CA certificate bundle (PEM format)
+  ca_bundle: /etc/ssl/certs/corporate-ca-bundle.pem
+
+  # Or use environment variable
+  # ca_bundle: ${SSL_CERT_FILE}
+
+  # Disable certificate verification (development/testing only - NOT RECOMMENDED)
+  # verify_ssl: false
 
 # Sync configuration
 sync:

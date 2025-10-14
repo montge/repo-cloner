@@ -133,10 +133,18 @@ docker-compose -f docker-compose.test.yml down
   - Support for GitLab PAT
   - Support for GitHub PAT
   - Environment variable injection
+- [ ] `CertificateManager` class for SSL/TLS certificate handling (FR-2.6)
+  - Load custom CA certificates from files or environment variables
+  - Support PEM and DER certificate formats
+  - Handle certificate chains and intermediate certificates
+  - Configure Git and HTTP clients to use custom trust stores
+  - Provide option to disable verification for development (with warnings)
 - [ ] Configuration model (Python dataclass/Pydantic)
 - [ ] CLI entry point with basic arguments
   - `--dry-run` flag for preview mode (FR-6.3)
   - Log what would be done without executing
+  - `--ca-cert` option for custom CA certificate bundle
+  - `--insecure` flag to skip certificate verification (development only)
 - [ ] Dry-run mode implementation
   - Preview clone operations without cloning
   - Preview push operations without pushing
@@ -157,22 +165,46 @@ docker-compose -f docker-compose.test.yml down
 4. **Test**: `test_auth_manager_injects_credentials()`
    - **Then**: Implement URL rewriting with credentials
 
-5. **Test**: `test_dry_run_mode_logs_without_cloning()`
-   - **Then**: Implement dry-run for clone operations
+5. **Test**: `test_certificate_manager_loads_custom_ca()`
+   - **Then**: Implement loading custom CA certificates
 
-6. **Test**: `test_dry_run_mode_logs_without_pushing()`
-   - **Then**: Implement dry-run for push operations
+6. **Test**: `test_certificate_manager_configures_git_ssl()`
+   - **Then**: Implement Git SSL configuration with custom certs
 
-7. **Integration Test**: `test_full_clone_and_push_flow()`
-   - Use test repositories on GitLab/GitHub
+7. **Test**: `test_certificate_manager_configures_requests_ssl()`
+   - **Then**: Implement requests/urllib3 SSL configuration
 
-8. **Integration Test**: `test_dry_run_end_to_end()`
-   - Run full workflow in dry-run, verify no changes made
+8. **Test**: `test_certificate_manager_handles_pem_and_der()`
+   - **Then**: Support both PEM and DER certificate formats
+
+9. **Test**: `test_certificate_manager_warns_on_insecure_mode()`
+   - **Then**: Implement insecure mode with proper warnings
+
+10. **Test**: `test_dry_run_mode_logs_without_cloning()`
+    - **Then**: Implement dry-run for clone operations
+
+11. **Test**: `test_dry_run_mode_logs_without_pushing()`
+    - **Then**: Implement dry-run for push operations
+
+12. **Integration Test**: `test_clone_with_custom_ca_certificate()`
+    - Create self-signed cert, test clone with custom CA
+
+13. **Integration Test**: `test_full_clone_and_push_flow()`
+    - Use test repositories on GitLab/GitHub
+
+14. **Integration Test**: `test_dry_run_end_to_end()`
+    - Run full workflow in dry-run, verify no changes made
 
 ### Technical Decisions
 - Use GitPython for most operations, shell out to git CLI for mirror
 - Store credentials in environment variables only
 - Temporary clone directory cleanup strategy
+- **Certificate Handling**:
+  - Set `GIT_SSL_CAINFO` environment variable for Git operations
+  - Configure `requests.Session()` with `verify` parameter for API calls
+  - Support certificate bundle files (PEM format with concatenated certs)
+  - Warn users when certificate verification is disabled
+  - Default to system trust store when no custom certs provided
 
 ### Definition of Done
 - ✅ All unit tests pass (>80% coverage)
