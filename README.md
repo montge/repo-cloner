@@ -105,13 +105,56 @@ export GITHUB_TOKEN="your-github-token"
 python -m repo_cloner sync --config config.yml
 ```
 
-#### 3. Dry-Run Mode (Preview Changes)
+#### 3. Sync Entire GitLab Group to GitHub Organization
+
+Bulk synchronize all repositories from a GitLab group (including subgroups) to a GitHub organization:
+
+```bash
+# Basic sync with flatten strategy (default)
+python -m repo_cloner sync-group \
+  --source-group company/backend \
+  --target-org my-github-org \
+  --auto-create
+
+# Preview mappings with dry-run
+python -m repo_cloner sync-group \
+  --source-group company/backend \
+  --target-org my-github-org \
+  --dry-run --verbose
+
+# Prefix strategy (keep only repo names, use topics for hierarchy)
+python -m repo_cloner sync-group \
+  --source-group company/backend \
+  --target-org my-github-org \
+  --mapping-strategy prefix \
+  --keep-last-n 1 \
+  --auto-create \
+  --workers 10
+
+# Strip parent group from names
+python -m repo_cloner sync-group \
+  --source-group company/backend \
+  --target-org my-github-org \
+  --mapping-strategy flatten \
+  --strip-parent \
+  --auto-create
+```
+
+**Mapping Strategy Examples:**
+- **Flatten** (default): `company/backend/auth` → `company-backend-auth`
+- **Flatten + Strip Parent**: `company/backend/auth` → `backend-auth`
+- **Prefix**: `company/backend/auth` → `auth` (with topics: `["company", "backend"]`)
+- **Full Path**: `company/backend/auth` → `company_backend_auth` (with `--separator _`)
+
+See [Group Mapping Strategies](#group-mapping-strategies) for detailed examples.
+
+#### 4. Dry-Run Mode (Preview Changes)
 
 ```bash
 python -m repo_cloner sync --config config.yml --dry-run --verbose
 ```
 
-#### 4. Create Archive for Air-Gap Deployment
+#### 5. Create Archive for Air-Gap Deployment
 
 ```bash
 # Create full archive
@@ -570,20 +613,32 @@ pre-commit run --all-files
 
 ### Completed Sprints
 
-- ✅ **Sprint 5**: Configuration & Group Mapping (51/51 tests)
+- ✅ **Sprint 5**: Configuration & Group Mapping (140/140 tests) - **COMPLETE**
+  - ✅ GroupMapper with 4 mapping strategies (flatten, prefix, full_path, custom)
+  - ✅ SyncOrchestrator for bulk GitLab group → GitHub org sync
+  - ✅ CLI `sync-group` command with full feature support
+  - ✅ Integration tests with real APIs (14 repos synced successfully)
 - ✅ **Sprint 6**: Air-Gap Support & Archive Management (18/18 tests)
 - ✅ **Sprint 7**: GitHub Actions Integration (10/10 tests)
-- 🟡 **Sprint 8**: Error Handling & Logging (53/53 tests) - **In Progress**
-  - ✅ Phase 1: Exception hierarchy & retry logic (34 tests)
-  - ✅ Phase 2: Structured logging (19 tests)
-  - ⏳ Phase 3: Documentation (in progress)
+- ✅ **Sprint 8**: Error Handling & Logging (53/53 tests)
+  - ✅ Custom exception hierarchy with context storage
+  - ✅ Retry logic with exponential backoff and jitter
+  - ✅ Structured logging with JSON formatting
 
 ### Test Coverage
 
-- **Total Tests**: 132+ passing
+- **Total Tests**: 221+ passing
 - **Code Coverage**: >80% overall
 - **CI/CD**: All checks passing (black, isort, flake8, mypy)
 - **Latest CI Run**: ✅ Success
+
+### Recent Achievements
+
+- 🎉 **Group Mapping Feature Complete** (January 2025)
+  - Bulk synchronization of entire GitLab groups to GitHub organizations
+  - Successfully synced 14 test repositories in 59.7 seconds
+  - All 4 mapping strategies tested and working
+  - 89 new tests added (84 unit + 5 integration)
 
 ### Roadmap
 

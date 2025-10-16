@@ -9,8 +9,12 @@ import click
 from .archive_manager import ArchiveManager
 from .auth_manager import AuthManager
 from .git_client import GitClient
+from .github_client import GitHubClient
+from .gitlab_client import GitLabClient
+from .group_mapper import GroupMapper, MappingConfig, MappingStrategy
 from .logging_config import configure_logging
 from .storage_backend import LocalFilesystemBackend
+from .sync_orchestrator import SyncOrchestrator
 
 
 # Helper functions for colored output
@@ -176,6 +180,281 @@ def version():
     """Show version information."""
     click.echo("repo-cloner version 0.1.0")
     click.echo("Built with Python, GitPython, and ❤️")
+
+
+@main.command(name="sync-group")
+@click.option(
+    "--source-group",
+    required=True,
+    help="GitLab group path (e.g., company/backend)",
+)
+@click.option(
+    "--target-org",
+    required=True,
+    help="GitHub organization name",
+)
+@click.option(
+    "--gitlab-url",
+    default="https://gitlab.com",
+    help="GitLab instance URL (default: https://gitlab.com)",
+)
+@click.option(
+    "--github-url",
+    default="https://github.com",
+    help="GitHub instance URL (default: https://github.com)",
+)
+@click.option(
+    "--gitlab-token",
+    envvar="GITLAB_TOKEN",
+    required=True,
+    help="GitLab personal access token (or set GITLAB_TOKEN env var)",
+)
+@click.option(
+    "--github-token",
+    envvar="GITHUB_TOKEN",
+    required=True,
+    help="GitHub personal access token (or set GITHUB_TOKEN env var)",
+)
+@click.option(
+    "--mapping-strategy",
+    type=click.Choice(["flatten", "prefix", "full_path", "custom"], case_sensitive=False),
+    default="flatten",
+    help="Repository name mapping strategy (default: flatten)",
+)
+@click.option(
+    "--separator",
+    default="-",
+    help="Separator for flattened repository names (default: -)",
+)
+@click.option(
+    "--strip-parent",
+    is_flag=True,
+    help="Strip root parent group from repository names",
+)
+@click.option(
+    "--keep-last-n",
+    type=int,
+    default=None,
+    help="Keep only last N path levels in repository names",
+)
+@click.option(
+    "--auto-create",
+    is_flag=True,
+    help="Automatically create missing GitHub repositories",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Preview mappings and actions without executing",
+)
+@click.option(
+    "--workers",
+    default=5,
+    type=int,
+    help="Number of concurrent workers for syncing (default: 5)",
+)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
+@click.pass_context
+def sync_group(
+    ctx,
+    source_group,
+    target_org,
+    gitlab_url,
+    github_url,
+    gitlab_token,
+    github_token,
+    mapping_strategy,
+    separator,
+    strip_parent,
+    keep_last_n,
+    auto_create,
+    dry_run,
+    workers,
+    verbose,
+):
+    """Sync entire GitLab group to GitHub organization.
+
+    This command discovers all repositories in a GitLab group (including subgroups),
+    maps them to GitHub repository names using the specified strategy, and synchronizes
+    them to the target GitHub organization.
+
+    Examples:
+
+        # Sync with flatten strategy (default)
+        repo-cloner sync-group --source-group company/backend --target-org my-org
+
+        # Sync with prefix strategy and auto-create
+        repo-cloner sync-group --source-group company/backend --target-org my-org \\
+            --mapping-strategy prefix --auto-create
+
+        # Dry-run to preview mappings
+        repo-cloner sync-group --source-group company/backend --target-org my-org \\
+            --dry-run --verbose
+
+        # Sync with custom separator and strip parent
+        repo-cloner sync-group --source-group company/backend --target-org my-org \\
+            --separator _ --strip-parent
+    """
+    quiet = ctx.obj.get("QUIET", False)
+    start_time = time.time()
+
+    if not quiet:
+        echo_info("\n🚀 Starting group synchronization", quiet)
+        if verbose:
+            click.echo(f"   Source group: {source_group}")
+            click.echo(f"   Target organization: {target_org}")
+            click.echo(f"   Mapping strategy: {mapping_strategy}")
+            click.echo(f"   Auto-create: {auto_create}")
+            click.echo(f"   Dry-run: {dry_run}")
+            click.echo(f"   Workers: {workers}\n")
+
+    # Initialize clients
+    try:
+        gitlab_client = GitLabClient(url=gitlab_url, token=gitlab_token)
+        # Convert GitHub web URL to API URL if needed
+        github_api_url = github_url.replace("https://github.com", "https://api.github.com")
+        github_client = GitHubClient(token=github_token, base_url=github_api_url)
+        git_client = GitClient()
+        auth_manager = AuthManager(github_token=github_token, gitlab_token=gitlab_token)
+    except Exception as e:
+        echo_error(f"Failed to initialize clients: {e}")
+        sys.exit(1)
+
+    # Create mapping configuration
+    strategy_map = {
+        "flatten": MappingStrategy.FLATTEN,
+        "prefix": MappingStrategy.PREFIX,
+        "full_path": MappingStrategy.FULL_PATH,
+        "custom": MappingStrategy.CUSTOM,
+    }
+
+    mapping_config = MappingConfig(
+        strategy=strategy_map[mapping_strategy.lower()],
+        separator=separator,
+        strip_parent_group=strip_parent,
+        keep_last_n_levels=keep_last_n,
+        use_topics=True,  # Always enable topics
+    )
+
+    # Create GroupMapper
+    group_mapper = GroupMapper(mapping_config)
+
+    # Create SyncOrchestrator
+    sync_orchestrator = SyncOrchestrator(
+        gitlab_client=gitlab_client,
+        github_client=github_client,
+        git_client=git_client,
+        auth_manager=auth_manager,
+        group_mapper=group_mapper,
+        github_org=target_org,
+        github_base_url=github_url,
+    )
+
+    # Execute synchronization
+    try:
+        echo_step(
+            1, 3 if not dry_run else 2, "🔍 Discovering repositories and mapping names...", quiet
+        )
+
+        summary = sync_orchestrator.sync_group_to_org(
+            gitlab_group_path=source_group,
+            auto_create=auto_create,
+            dry_run=dry_run,
+            workers=workers,
+        )
+
+        # Display summary
+        if not quiet:
+            click.echo()
+            echo_info("📊 Synchronization Summary", quiet)
+            click.echo(f"   Total repositories: {summary.total_repos}")
+            click.echo(f"   Mapped repositories: {summary.mapped_repos}")
+
+            if summary.skipped_repos > 0:
+                echo_warning(f"   Skipped (invalid names): {summary.skipped_repos}", quiet)
+
+            if summary.conflicts:
+                echo_warning(f"   Naming conflicts detected: {len(summary.conflicts)}", quiet)
+                if verbose:
+                    click.echo("\n   Conflicts:")
+                    for github_name, gitlab_paths in summary.conflicts.items():
+                        click.echo(f"      {github_name} ← {', '.join(gitlab_paths)}")
+
+            if summary.invalid_names:
+                echo_warning(f"   Invalid repository names: {len(summary.invalid_names)}", quiet)
+                if verbose:
+                    click.echo("\n   Invalid names:")
+                    for invalid in summary.invalid_names:
+                        click.echo(f"      {invalid['gitlab_path']} → {invalid['github_name']}")
+                        click.echo(f"         Error: {invalid['error']}")
+
+            if not dry_run:
+                click.echo()
+                if summary.created_repos > 0:
+                    echo_success(f"   Created repositories: {summary.created_repos}", quiet)
+                echo_info(f"   Synced repositories: {summary.synced_repos}", quiet)
+                if summary.failed_repos > 0:
+                    echo_error(f"   Failed repositories: {summary.failed_repos}")
+
+                    if verbose:
+                        click.echo("\n   Failed repositories:")
+                        for mapping in summary.mappings:
+                            if mapping.sync_error:
+                                click.echo(f"      {mapping.gitlab_path}")
+                                click.echo(f"         Error: {mapping.sync_error}")
+
+            # Display mappings in verbose mode
+            if verbose and summary.mappings:
+                click.echo("\n   Repository Mappings:")
+                for mapping in summary.mappings:
+                    status = "✅" if mapping.sync_success else ("❌" if mapping.sync_error else "⏭️")
+                    created_flag = " [CREATED]" if mapping.created else ""
+                    click.echo(f"      {status} {mapping.gitlab_path}")
+                    click.echo(f"         → {mapping.github_full_name}{created_flag}")
+                    if mapping.topics:
+                        click.echo(f"         Topics: {', '.join(mapping.topics)}")
+                    if mapping.sync_error:
+                        click.echo(f"         Error: {mapping.sync_error}")
+
+        # Success/failure determination
+        total_duration = time.time() - start_time
+
+        if dry_run:
+            if not quiet:
+                click.echo()
+                echo_success(f"🎉 Dry-run complete! (Duration: {format_duration(total_duration)})")
+                click.echo("\n💡 Run without --dry-run to execute the synchronization")
+                if summary.conflicts or summary.invalid_names:
+                    echo_warning(
+                        "   ⚠️  Please resolve conflicts and invalid names before running",
+                        quiet,
+                    )
+        else:
+            if summary.failed_repos == 0:
+                if not quiet:
+                    click.echo()
+                    duration_msg = (
+                        f"🎉 Group synchronization complete! "
+                        f"(Duration: {format_duration(total_duration)})"
+                    )
+                    echo_success(duration_msg)
+            else:
+                if not quiet:
+                    click.echo()
+                    warning_msg = (
+                        f"⚠️  Group synchronization completed with "
+                        f"{summary.failed_repos} failure(s)"
+                    )
+                    echo_warning(warning_msg, quiet)
+                sys.exit(1)
+
+    except Exception as e:
+        echo_error(f"Synchronization failed: {e}")
+        if verbose:
+            import traceback
+
+            click.echo(traceback.format_exc(), err=True)
+        sys.exit(1)
 
 
 # Archive management commands
