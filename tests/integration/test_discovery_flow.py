@@ -7,7 +7,7 @@ from github import UnknownObjectException
 
 from repo_cloner.github_client import GitHubClient
 from repo_cloner.gitlab_client import GitLabClient
-from repo_cloner.group_mapper import GroupMapper
+from repo_cloner.group_mapper import GroupMapper, MappingConfig, MappingStrategy
 from repo_cloner.metadata_mapper import MetadataMapper
 
 
@@ -57,7 +57,10 @@ class TestDiscoveryFlow:
         github_client = GitHubClient(token="github-token", gh_instance=mock_github)
 
         # Arrange - Mappers
-        group_mapper = GroupMapper(mapping={"myteam": "github-org"})
+        config = MappingConfig(
+            strategy=MappingStrategy.CUSTOM, custom_mappings={"myteam": "github-org"}
+        )
+        group_mapper = GroupMapper(config)
         metadata_mapper = MetadataMapper()
 
         # Act - Step 1: Discover GitLab projects
@@ -165,7 +168,10 @@ class TestDiscoveryFlow:
         )
 
         # Arrange - Mappers
-        group_mapper = GroupMapper(mapping={"team": "company-org"})
+        config = MappingConfig(
+            strategy=MappingStrategy.CUSTOM, custom_mappings={"team": "company-org"}
+        )
+        group_mapper = GroupMapper(config)
         metadata_mapper = MetadataMapper()
 
         # Act - Discover all projects
@@ -214,7 +220,11 @@ class TestDiscoveryFlow:
         )
 
         # Arrange - Mapper with nested group
-        group_mapper = GroupMapper(mapping={"company/division/team": "team-github-org"})
+        config = MappingConfig(
+            strategy=MappingStrategy.CUSTOM,
+            custom_mappings={"company/division/team": "team-github-org"},
+        )
+        group_mapper = GroupMapper(config)
         metadata_mapper = MetadataMapper()
 
         # Act
@@ -253,9 +263,12 @@ class TestDiscoveryFlow:
         )
 
         # Arrange - Mapper with default_org
-        group_mapper = GroupMapper(
-            mapping={"specific-group": "specific-org"}, default_org="catch-all-org"
+        config = MappingConfig(
+            strategy=MappingStrategy.CUSTOM,
+            custom_mappings={"specific-group": "specific-org"},
+            default_org="catch-all-org",
         )
+        group_mapper = GroupMapper(config)
 
         # Act
         projects = gitlab_client.list_projects("random-group")
