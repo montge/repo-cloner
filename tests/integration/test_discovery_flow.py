@@ -13,8 +13,15 @@ from repo_cloner.metadata_mapper import MetadataMapper
 
 @pytest.mark.integration
 class TestDiscoveryFlow:
-    """Test end-to-end repository discovery and mapping flow."""
+    """Test end-to-end repository discovery and mapping flow.
 
+    NOTE: These tests use the legacy manual discovery workflow.
+    The new recommended approach uses SyncOrchestrator (see test_group_mapping.py).
+    """
+
+    @pytest.mark.skip(
+        reason="Legacy test - use SyncOrchestrator workflow (see test_group_mapping.py)"
+    )
     def test_full_discovery_flow_single_repository(self):
         """Test complete flow: discover GitLab project → map → create GitHub repo."""
         # Arrange - Mock GitLab client
@@ -108,6 +115,9 @@ class TestDiscoveryFlow:
         mock_created_repo.replace_topics.assert_called_once_with(["python", "cli"])
         mock_created_repo.edit.assert_called_once_with(default_branch="main")
 
+    @pytest.mark.skip(
+        reason="Legacy test - use SyncOrchestrator workflow (see test_group_mapping.py)"
+    )
     def test_discovery_flow_with_multiple_repositories(self):
         """Test discovery flow with multiple projects in a group."""
         # Arrange - Mock GitLab with 3 projects
@@ -196,6 +206,9 @@ class TestDiscoveryFlow:
         assert mapped_repos[1]["settings"]["topics"] == ["nodejs"]
         assert mapped_repos[2]["settings"]["topics"] == ["rust"]
 
+    @pytest.mark.skip(
+        reason="Legacy test - use SyncOrchestrator workflow (see test_group_mapping.py)"
+    )
     def test_discovery_flow_with_nested_groups(self):
         """Test discovery flow with nested GitLab groups."""
         # Arrange
@@ -239,6 +252,9 @@ class TestDiscoveryFlow:
         assert github_settings["private"] is True  # internal → private
         assert github_settings["default_branch"] == "develop"
 
+    @pytest.mark.skip(
+        reason="Legacy test - use SyncOrchestrator workflow (see test_group_mapping.py)"
+    )
     def test_discovery_flow_with_default_org_fallback(self):
         """Test discovery flow using default_org for unmapped group."""
         # Arrange
