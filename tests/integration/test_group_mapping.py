@@ -343,7 +343,7 @@ class TestManualGroupSync:
 
         # Verify
         print(f"\n{'='*60}")
-        print(f"Sync Summary:")
+        print("Sync Summary:")
         print(f"  Total repos: {summary.total_repos}")
         print(f"  Mapped repos: {summary.mapped_repos}")
         print(f"  Created repos: {summary.created_repos}")
