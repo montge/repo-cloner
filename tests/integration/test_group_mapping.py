@@ -65,9 +65,7 @@ class TestGroupMappingDryRun:
     ):
         """Test discovering and mapping repos with flatten strategy."""
         # Setup
-        config = MappingConfig(
-            strategy=MappingStrategy.FLATTEN, separator="-", use_topics=True
-        )
+        config = MappingConfig(strategy=MappingStrategy.FLATTEN, separator="-", use_topics=True)
         mapper = GroupMapper(config)
         orchestrator = SyncOrchestrator(
             gitlab_client=gitlab_client,
@@ -100,9 +98,7 @@ class TestGroupMappingDryRun:
         # Verify naming pattern (flatten with hyphen separator)
         for mapping in summary.mappings:
             assert "-" in mapping.github_name, "Should use hyphen separator"
-            assert mapping.github_name.startswith(
-                "test6452742-again-"
-            ), "Should include group path"
+            assert mapping.github_name.startswith("test6452742-again-"), "Should include group path"
 
             # Verify topics extracted from parent groups
             assert "test6452742" in mapping.topics, "Should have test6452742 topic"
@@ -142,9 +138,7 @@ class TestGroupMappingDryRun:
         # Verify naming pattern (strip parent)
         for mapping in summary.mappings:
             # Should not start with "test6452742" since parent is stripped
-            assert not mapping.github_name.startswith(
-                "test6452742"
-            ), "Should strip parent group"
+            assert not mapping.github_name.startswith("test6452742"), "Should strip parent group"
 
             # For repos directly in "again/", names should start with "again-"
             # For repos in subgroups, names should include the subgroup
@@ -192,14 +186,10 @@ class TestGroupMappingDryRun:
         for mapping in summary.mappings:
             assert len(mapping.topics) > 0, "Should have topics to preserve context"
 
-    def test_check_existing_repos(
-        self, gitlab_client, github_client, git_client, auth_manager
-    ):
+    def test_check_existing_repos(self, gitlab_client, github_client, git_client, auth_manager):
         """Test checking which repos already exist on GitHub."""
         # Setup
-        config = MappingConfig(
-            strategy=MappingStrategy.FLATTEN, separator="-", use_topics=True
-        )
+        config = MappingConfig(strategy=MappingStrategy.FLATTEN, separator="-", use_topics=True)
         mapper = GroupMapper(config)
         orchestrator = SyncOrchestrator(
             gitlab_client=gitlab_client,
@@ -228,9 +218,7 @@ class TestGroupMappingDryRun:
     ):
         """Test that all mapped names are valid GitHub repository names."""
         # Setup
-        config = MappingConfig(
-            strategy=MappingStrategy.FLATTEN, separator="-", use_topics=True
-        )
+        config = MappingConfig(strategy=MappingStrategy.FLATTEN, separator="-", use_topics=True)
         mapper = GroupMapper(config)
         orchestrator = SyncOrchestrator(
             gitlab_client=gitlab_client,
@@ -253,12 +241,8 @@ class TestGroupMappingDryRun:
         for mapping in summary.mappings:
             # Validate GitHub naming rules
             assert len(mapping.github_name) <= 100, "Name should not exceed 100 chars"
-            assert not mapping.github_name.startswith(
-                "-"
-            ), "Name should not start with hyphen"
-            assert not mapping.github_name.startswith(
-                "_"
-            ), "Name should not start with underscore"
+            assert not mapping.github_name.startswith("-"), "Name should not start with hyphen"
+            assert not mapping.github_name.startswith("_"), "Name should not start with underscore"
             assert not mapping.github_name.endswith(".git"), "Name should not end with .git"
 
 
@@ -283,9 +267,7 @@ class TestGroupMappingActualSync:
         4. Sync the repository
         """
         # Setup
-        config = MappingConfig(
-            strategy=MappingStrategy.FLATTEN, separator="-", use_topics=True
-        )
+        config = MappingConfig(strategy=MappingStrategy.FLATTEN, separator="-", use_topics=True)
         mapper = GroupMapper(config)
         orchestrator = SyncOrchestrator(
             gitlab_client=gitlab_client,

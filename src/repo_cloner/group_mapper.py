@@ -282,9 +282,7 @@ class GroupMapper:
 
         # Return only conflicts (where multiple GitLab paths map to same GitHub name)
         return {
-            github_name: paths
-            for github_name, paths in github_to_gitlab.items()
-            if len(paths) > 1
+            github_name: paths for github_name, paths in github_to_gitlab.items() if len(paths) > 1
         }
 
 
