@@ -3,7 +3,7 @@
 [![CI](https://github.com/montge/repo-cloner/actions/workflows/ci.yml/badge.svg)](https://github.com/montge/repo-cloner/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 A powerful Python tool for cloning, synchronizing, and archiving Git repositories across multiple platforms with comprehensive error handling, structured logging, and air-gap support.
 
@@ -668,11 +668,13 @@ We welcome contributions! Please follow these guidelines:
 5. **Documentation**: Update README and relevant docs
 6. **Commit messages**: Use descriptive commit messages following the project style
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines (to be created).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed contribution guidelines.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+By contributing to this project, you agree that your contributions will be licensed under the Apache License 2.0.
 
 ## 🆘 Support
 
