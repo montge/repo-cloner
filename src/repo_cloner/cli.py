@@ -226,7 +226,10 @@ def version():
     envvar="DEFAULT_MAPPING_STRATEGY",
     type=click.Choice(["flatten", "prefix", "full_path", "custom"], case_sensitive=False),
     default="flatten",
-    help="Repository name mapping strategy (default: flatten) or set DEFAULT_MAPPING_STRATEGY env var",
+    help=(
+        "Repository name mapping strategy (default: flatten) "
+        "or set DEFAULT_MAPPING_STRATEGY env var"
+    ),
 )
 @click.option(
     "--separator",
