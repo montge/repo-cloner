@@ -347,41 +347,44 @@ See [examples/github-actions/README.md](examples/github-actions/README.md) for d
 
 ### High-Level Design
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     repo-cloner CLI                          │
-├─────────────────────────────────────────────────────────────┤
-│  Configuration │ Authentication │ Logging │ Error Handling  │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐    │
-│  │   GitLab     │   │   GitHub     │   │   Storage    │    │
-│  │   Client     │   │   Client     │   │   Backends   │    │
-│  └──────────────┘   └──────────────┘   └──────────────┘    │
-│         │                   │                   │            │
-│         └───────────────────┴───────────────────┘            │
-│                         │                                    │
-│              ┌──────────────────────┐                        │
-│              │   Sync Engine        │                        │
-│              │   - Detect changes   │                        │
-│              │   - Conflict detect  │                        │
-│              │   - Retry logic      │                        │
-│              └──────────────────────┘                        │
-│                         │                                    │
-│              ┌──────────────────────┐                        │
-│              │   Git Operations     │                        │
-│              │   - Clone mirror     │                        │
-│              │   - Push mirror      │                        │
-│              │   - LFS handling     │                        │
-│              └──────────────────────┘                        │
-│                         │                                    │
-│              ┌──────────────────────┐                        │
-│              │   Archive Manager    │                        │
-│              │   - Full archives    │                        │
-│              │   - Incremental      │                        │
-│              │   - Chain restore    │                        │
-│              └──────────────────────┘                        │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    CLI[repo-cloner CLI]
+
+    subgraph "Core Infrastructure"
+        Config[Configuration]
+        Auth[Authentication]
+        Logging[Logging]
+        Error[Error Handling]
+    end
+
+    subgraph "API Clients"
+        GitLab[GitLab Client]
+        GitHub[GitHub Client]
+        Storage[Storage Backends]
+    end
+
+    subgraph "Processing Layer"
+        Sync[Sync Engine<br/>- Detect changes<br/>- Conflict detect<br/>- Retry logic]
+        Git[Git Operations<br/>- Clone mirror<br/>- Push mirror<br/>- LFS handling]
+        Archive[Archive Manager<br/>- Full archives<br/>- Incremental<br/>- Chain restore]
+    end
+
+    CLI --> Config
+    CLI --> Auth
+    CLI --> Logging
+    CLI --> Error
+
+    Config --> GitLab
+    Config --> GitHub
+    Config --> Storage
+
+    GitLab --> Sync
+    GitHub --> Sync
+    Storage --> Sync
+
+    Sync --> Git
+    Git --> Archive
 ```
 
 ### Core Components

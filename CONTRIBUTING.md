@@ -182,13 +182,17 @@ Run tests again: All tests should still pass (🟢 Green).
 
 ### Test Pyramid
 
-```
-     /\
-    /  \   E2E Tests (few, critical paths)
-   /____\
-  /      \  Integration Tests (moderate, use Docker)
- /________\
-/__________\ Unit Tests (many, fast)
+```mermaid
+graph TD
+    E2E["E2E Tests<br/><small>few, critical paths</small>"]
+    Integration["Integration Tests<br/><small>moderate, use Docker</small>"]
+    Unit["Unit Tests<br/><small>many, fast</small>"]
+
+    E2E --> Integration --> Unit
+
+    style E2E fill:#ff6b6b,stroke:#c92a2a,stroke-width:2px
+    style Integration fill:#4ecdc4,stroke:#0b7285,stroke-width:3px
+    style Unit fill:#45b7d1,stroke:#1971c2,stroke-width:4px
 ```
 
 ### Test Types
