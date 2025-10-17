@@ -70,7 +70,13 @@ class LFSHandler:
         Args:
             repo_path: Path to local repository
         """
-        subprocess.run(["git", "lfs", "pull"], cwd=repo_path, check=True, capture_output=True)
+        # Disable LFS lock verification as not all platforms support the locking API
+        env = os.environ.copy()
+        env["GIT_LFS_SKIP_VERIFY"] = "1"
+
+        subprocess.run(
+            ["git", "lfs", "pull"], cwd=repo_path, check=True, capture_output=True, env=env
+        )
 
     def get_lfs_info(self, repo_path: str) -> Dict[str, Any]:
         """
@@ -84,8 +90,17 @@ class LFSHandler:
             - lfs_file_count: int
             - lfs_files: List[str]
         """
+        # Disable LFS lock verification as not all platforms support the locking API
+        env = os.environ.copy()
+        env["GIT_LFS_SKIP_VERIFY"] = "1"
+
         result = subprocess.run(
-            ["git", "lfs", "ls-files"], cwd=repo_path, capture_output=True, text=True, check=False
+            ["git", "lfs", "ls-files"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
         )
 
         if result.returncode != 0:

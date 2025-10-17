@@ -73,12 +73,17 @@ class TestLFSHandler:
 
                 handler.fetch_lfs_objects(str(repo_path))
 
-                # Assert - Verify git lfs pull was called
+                # Assert - Verify git lfs pull was called with lock verification disabled
                 mock_run.assert_called_once()
                 call_args = mock_run.call_args[0][0]
                 assert "git" in call_args
                 assert "lfs" in call_args
                 assert "pull" in call_args
+
+                # Verify GIT_LFS_SKIP_VERIFY is set to disable locking API
+                call_kwargs = mock_run.call_args[1]
+                assert "env" in call_kwargs
+                assert call_kwargs["env"]["GIT_LFS_SKIP_VERIFY"] == "1"
 
     def test_clone_with_lfs_full_workflow(self):
         """Test complete LFS clone workflow: clone with skip + fetch LFS."""
@@ -150,3 +155,8 @@ class TestLFSHandler:
                 assert info["lfs_file_count"] == 2
                 assert "file1.psd" in str(info["lfs_files"])
                 assert "file2.zip" in str(info["lfs_files"])
+
+                # Verify GIT_LFS_SKIP_VERIFY is set to disable locking API
+                call_kwargs = mock_run.call_args[1]
+                assert "env" in call_kwargs
+                assert call_kwargs["env"]["GIT_LFS_SKIP_VERIFY"] == "1"

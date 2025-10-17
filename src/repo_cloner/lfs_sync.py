@@ -1,5 +1,6 @@
 """Git LFS sync operations for incremental updates."""
 
+import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -37,7 +38,13 @@ class LFSSync:
             for pattern in include_patterns:
                 cmd.extend(["--include", pattern])
 
-        result = subprocess.run(cmd, cwd=repo_path, capture_output=True, text=True, check=False)
+        # Disable LFS lock verification as not all platforms support the locking API
+        env = os.environ.copy()
+        env["GIT_LFS_SKIP_VERIFY"] = "1"
+
+        result = subprocess.run(
+            cmd, cwd=repo_path, capture_output=True, text=True, check=False, env=env
+        )
 
         # Count objects fetched from output
         objects_fetched = 0
@@ -60,8 +67,12 @@ class LFSSync:
             Dictionary with prune results:
             - success: bool
         """
+        # Disable LFS lock verification as not all platforms support the locking API
+        env = os.environ.copy()
+        env["GIT_LFS_SKIP_VERIFY"] = "1"
+
         result = subprocess.run(
-            ["git", "lfs", "prune"], cwd=repo_path, capture_output=True, check=False
+            ["git", "lfs", "prune"], cwd=repo_path, capture_output=True, check=False, env=env
         )
 
         return {"success": result.returncode == 0}
@@ -102,8 +113,12 @@ class LFSSync:
             Dictionary with checkout results:
             - success: bool
         """
+        # Disable LFS lock verification as not all platforms support the locking API
+        env = os.environ.copy()
+        env["GIT_LFS_SKIP_VERIFY"] = "1"
+
         result = subprocess.run(
-            ["git", "lfs", "checkout"], cwd=repo_path, capture_output=True, check=False
+            ["git", "lfs", "checkout"], cwd=repo_path, capture_output=True, check=False, env=env
         )
 
         return {"success": result.returncode == 0}

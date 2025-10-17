@@ -30,7 +30,7 @@ class TestLFSSync:
 
                 result = sync.sync_lfs_objects(str(repo_path))
 
-                # Assert - git lfs fetch called
+                # Assert - git lfs fetch called with lock verification disabled
                 assert mock_run.called
                 call_args = mock_run.call_args[0][0]
                 assert "git" in call_args
@@ -38,6 +38,11 @@ class TestLFSSync:
                 assert "fetch" in call_args
                 assert result["success"] is True
                 assert result["objects_fetched"] > 0
+
+                # Verify GIT_LFS_SKIP_VERIFY is set to disable locking API
+                call_kwargs = mock_run.call_args[1]
+                assert "env" in call_kwargs
+                assert call_kwargs["env"]["GIT_LFS_SKIP_VERIFY"] == "1"
 
     def test_sync_lfs_uses_recent_flag_for_incremental(self):
         """Test that LFS sync can fetch only recent objects."""
@@ -71,12 +76,17 @@ class TestLFSSync:
 
                 result = sync.prune_lfs_objects(str(repo_path))
 
-                # Assert - git lfs prune called
+                # Assert - git lfs prune called with lock verification disabled
                 call_args = mock_run.call_args[0][0]
                 assert "git" in call_args
                 assert "lfs" in call_args
                 assert "prune" in call_args
                 assert result["success"] is True
+
+                # Verify GIT_LFS_SKIP_VERIFY is set to disable locking API
+                call_kwargs = mock_run.call_args[1]
+                assert "env" in call_kwargs
+                assert call_kwargs["env"]["GIT_LFS_SKIP_VERIFY"] == "1"
 
     def test_sync_lfs_detects_changed_objects(self):
         """Test detection of LFS objects that have changed."""
@@ -125,12 +135,17 @@ class TestLFSSync:
 
                 result = sync.checkout_lfs_objects(str(repo_path))
 
-                # Assert - git lfs checkout called
+                # Assert - git lfs checkout called with lock verification disabled
                 call_args = mock_run.call_args[0][0]
                 assert "git" in call_args
                 assert "lfs" in call_args
                 assert "checkout" in call_args
                 assert result["success"] is True
+
+                # Verify GIT_LFS_SKIP_VERIFY is set to disable locking API
+                call_kwargs = mock_run.call_args[1]
+                assert "env" in call_kwargs
+                assert call_kwargs["env"]["GIT_LFS_SKIP_VERIFY"] == "1"
 
     def test_get_lfs_storage_size(self):
         """Test getting total size of LFS storage."""
