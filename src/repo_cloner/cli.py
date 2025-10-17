@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import click
+from dotenv import load_dotenv
 
 from .archive_manager import ArchiveManager
 from .auth_manager import AuthManager
@@ -69,6 +70,9 @@ def main(ctx, quiet, json_logs):
 
     Clone, synchronize, and archive Git repositories across platforms.
     """
+    # Load environment variables from .env file if it exists
+    load_dotenv()
+
     # Store global options in context for subcommands
     ctx.ensure_object(dict)
     ctx.obj["QUIET"] = quiet
@@ -185,23 +189,25 @@ def version():
 @main.command(name="sync-group")
 @click.option(
     "--source-group",
-    required=True,
-    help="GitLab group path (e.g., company/backend)",
+    envvar="GITLAB_SOURCE_GROUP",
+    help="GitLab group path (e.g., company/backend) or set GITLAB_SOURCE_GROUP env var",
 )
 @click.option(
     "--target-org",
-    required=True,
-    help="GitHub organization name",
+    envvar="GITHUB_TARGET_ORG",
+    help="GitHub organization name or set GITHUB_TARGET_ORG env var",
 )
 @click.option(
     "--gitlab-url",
+    envvar="GITLAB_URL",
     default="https://gitlab.com",
-    help="GitLab instance URL (default: https://gitlab.com)",
+    help="GitLab instance URL (default: https://gitlab.com) or set GITLAB_URL env var",
 )
 @click.option(
     "--github-url",
+    envvar="GITHUB_URL",
     default="https://github.com",
-    help="GitHub instance URL (default: https://github.com)",
+    help="GitHub instance URL (default: https://github.com) or set GITHUB_URL env var",
 )
 @click.option(
     "--gitlab-token",
@@ -217,30 +223,35 @@ def version():
 )
 @click.option(
     "--mapping-strategy",
+    envvar="DEFAULT_MAPPING_STRATEGY",
     type=click.Choice(["flatten", "prefix", "full_path", "custom"], case_sensitive=False),
     default="flatten",
-    help="Repository name mapping strategy (default: flatten)",
+    help="Repository name mapping strategy (default: flatten) or set DEFAULT_MAPPING_STRATEGY env var",
 )
 @click.option(
     "--separator",
+    envvar="DEFAULT_SEPARATOR",
     default="-",
-    help="Separator for flattened repository names (default: -)",
+    help="Separator for flattened repository names (default: -) or set DEFAULT_SEPARATOR env var",
 )
 @click.option(
     "--strip-parent",
+    envvar="DEFAULT_STRIP_PARENT",
     is_flag=True,
-    help="Strip root parent group from repository names",
+    help="Strip root parent group from repository names or set DEFAULT_STRIP_PARENT=true env var",
 )
 @click.option(
     "--keep-last-n",
+    envvar="DEFAULT_KEEP_LAST_N",
     type=int,
     default=None,
-    help="Keep only last N path levels in repository names",
+    help="Keep only last N path levels in repository names or set DEFAULT_KEEP_LAST_N env var",
 )
 @click.option(
     "--auto-create",
+    envvar="DEFAULT_AUTO_CREATE",
     is_flag=True,
-    help="Automatically create missing GitHub repositories",
+    help="Automatically create missing GitHub repositories or set DEFAULT_AUTO_CREATE=true env var",
 )
 @click.option(
     "--dry-run",
@@ -249,9 +260,10 @@ def version():
 )
 @click.option(
     "--workers",
+    envvar="DEFAULT_WORKERS",
     default=5,
     type=int,
-    help="Number of concurrent workers for syncing (default: 5)",
+    help="Number of concurrent workers for syncing (default: 5) or set DEFAULT_WORKERS env var",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @click.pass_context
