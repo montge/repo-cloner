@@ -406,6 +406,39 @@ repo-cloner/
 - Write clear, maintainable code
 - Help others learn and grow
 
+## License
+
+By contributing to repo-cloner, you agree that your contributions will be licensed under the [Apache License 2.0](LICENSE).
+
+### Contributor Agreement
+
+When you submit a contribution (pull request, issue, comment, or other submission), you certify that:
+
+1. **You have the right to submit the contribution** - The contribution is your original work, or you have permission to submit it
+2. **You grant the project a license** - You grant repo-cloner and recipients of software distributed by repo-cloner a perpetual, worldwide, non-exclusive, no-charge, royalty-free license to use, reproduce, modify, display, perform, sublicense, and distribute your contribution as part of the project
+3. **Your contribution doesn't violate any third-party rights** - Your contribution doesn't include proprietary or confidential information, and doesn't violate patents, copyrights, trademarks, or other rights
+4. **You understand the license** - You have read and understand the Apache License 2.0
+
+### Developer Certificate of Origin (DCO)
+
+By making a contribution to this project, you certify that:
+
+- The contribution was created in whole or in part by you and you have the right to submit it under the Apache 2.0 license
+- The contribution is based upon previous work that, to the best of your knowledge, is covered under an appropriate open source license and you have the right under that license to submit that work with modifications
+- The contribution was provided directly to you by some other person who certified as above, and you have not modified it
+
+### AI-Assisted Contributions
+
+If you use AI coding assistants (like GitHub Copilot, Claude Code, ChatGPT, etc.) for your contributions:
+
+- You remain fully responsible for the contribution
+- Ensure the AI-generated code doesn't violate any licenses or copyrights
+- Review and test all AI-generated code thoroughly
+- Optionally add co-authorship attribution in commit messages:
+  ```
+  Co-Authored-By: Claude <noreply@anthropic.com>
+  ```
+
 ---
 
 **Happy Coding! 🚀**
