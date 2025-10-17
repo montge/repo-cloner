@@ -38,26 +38,54 @@ class GitLabClient:
             gl_instance if gl_instance is not None else gitlab.Gitlab(url, private_token=token)
         )
 
-    def list_projects(self, group_path: str) -> List[Dict]:
+    def list_projects(self, group_path: str, include_subgroups: bool = True) -> List[Dict]:
         """
-        List all projects in a GitLab group.
+        List all projects in a GitLab group, optionally including nested subgroups.
 
         Args:
             group_path: Path to the GitLab group (e.g., "mygroup" or "mygroup/subgroup")
+            include_subgroups: If True, recursively includes projects from all nested
+                             subgroups (default: True). When False, only direct projects
+                             in the specified group are returned.
 
         Returns:
-            List of project dictionaries with basic info
+            List of project dictionaries with basic info. Each dict contains:
+            - id: Project ID
+            - name: Project name
+            - path_with_namespace: Full path (e.g., "company/backend/auth/service")
+            - web_url: Project web URL
 
         Raises:
             Exception: If group not found or API error occurs
+
+        Examples:
+            Group structure:
+                company/
+                  ├── backend/
+                  │   ├── auth-service (project)
+                  │   └── api/
+                  │       └── rest-api (project)
+                  └── frontend/
+                      └── web-app (project)
+
+            >>> client.list_projects("company", include_subgroups=True)
+            # Returns: [auth-service, rest-api, web-app]
+
+            >>> client.list_projects("company", include_subgroups=False)
+            # Returns: [] (no direct projects in company/)
+
+            >>> client.list_projects("company/backend", include_subgroups=True)
+            # Returns: [auth-service, rest-api]
         """
         group = self.gl.groups.get(group_path)
         projects = []
 
-        # Handle pagination - get all projects
+        # Handle pagination - get all projects including subgroups
         page = 1
         while True:
-            page_projects = group.projects.list(page=page, per_page=20)
+            page_projects = group.projects.list(
+                page=page, per_page=20, include_subgroups=include_subgroups
+            )
             if not page_projects:
                 break
 

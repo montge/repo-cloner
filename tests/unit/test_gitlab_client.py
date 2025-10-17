@@ -182,3 +182,85 @@ class TestGitLabClient:
 
         # Assert
         assert details.http_url_to_repo == "https://gitlab.com/org/clone-test.git"
+
+    def test_list_projects_includes_subgroups_by_default(self):
+        """Test that list_projects includes nested subgroup projects by default."""
+        # Arrange
+        mock_gl = Mock()
+        mock_group = Mock()
+
+        # Create mock projects from different subgroup levels
+        # company/ (no direct projects)
+        # company/backend/auth-service (project)
+        # company/backend/api/rest-api (project)
+        # company/frontend/web-app (project)
+        mock_project1 = Mock()
+        mock_project1.id = 1
+        mock_project1.name = "auth-service"
+        mock_project1.path_with_namespace = "company/backend/auth-service"
+        mock_project1.web_url = "https://gitlab.com/company/backend/auth-service"
+
+        mock_project2 = Mock()
+        mock_project2.id = 2
+        mock_project2.name = "rest-api"
+        mock_project2.path_with_namespace = "company/backend/api/rest-api"
+        mock_project2.web_url = "https://gitlab.com/company/backend/api/rest-api"
+
+        mock_project3 = Mock()
+        mock_project3.id = 3
+        mock_project3.name = "web-app"
+        mock_project3.path_with_namespace = "company/frontend/web-app"
+        mock_project3.web_url = "https://gitlab.com/company/frontend/web-app"
+
+        # Mock projects.list with include_subgroups=True returning all nested projects
+        mock_group.projects.list.side_effect = [
+            [mock_project1, mock_project2, mock_project3],
+            [],
+        ]
+        mock_gl.groups.get.return_value = mock_group
+
+        client = GitLabClient(url="https://gitlab.com", token="test-token", gl_instance=mock_gl)
+
+        # Act
+        projects = client.list_projects("company")
+
+        # Assert
+        assert len(projects) == 3
+        assert projects[0]["path_with_namespace"] == "company/backend/auth-service"
+        assert projects[1]["path_with_namespace"] == "company/backend/api/rest-api"
+        assert projects[2]["path_with_namespace"] == "company/frontend/web-app"
+
+        # Verify include_subgroups=True was passed in the first call
+        assert mock_group.projects.list.call_count >= 1
+        first_call = mock_group.projects.list.call_args_list[0]
+        assert first_call[1]["include_subgroups"] is True
+
+    def test_list_projects_can_exclude_subgroups(self):
+        """Test that list_projects can list only direct projects when include_subgroups=False."""
+        # Arrange
+        mock_gl = Mock()
+        mock_group = Mock()
+
+        # Only direct projects in the group (no nested subgroup projects)
+        mock_project = Mock()
+        mock_project.id = 1
+        mock_project.name = "direct-project"
+        mock_project.path_with_namespace = "company/direct-project"
+        mock_project.web_url = "https://gitlab.com/company/direct-project"
+
+        mock_group.projects.list.side_effect = [[mock_project], []]
+        mock_gl.groups.get.return_value = mock_group
+
+        client = GitLabClient(url="https://gitlab.com", token="test-token", gl_instance=mock_gl)
+
+        # Act
+        projects = client.list_projects("company", include_subgroups=False)
+
+        # Assert
+        assert len(projects) == 1
+        assert projects[0]["name"] == "direct-project"
+
+        # Verify include_subgroups=False was passed in the first call
+        assert mock_group.projects.list.call_count >= 1
+        first_call = mock_group.projects.list.call_args_list[0]
+        assert first_call[1]["include_subgroups"] is False
