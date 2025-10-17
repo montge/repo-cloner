@@ -7,6 +7,10 @@ on:
     branches: [ main, develop ]
   workflow_dispatch:
 
+# Minimal permissions for security (principle of least privilege)
+permissions:
+  contents: read
+
 jobs:
   # Unit tests - fast, no Docker
   unit-tests:

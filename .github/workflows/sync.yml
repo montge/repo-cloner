@@ -60,6 +60,10 @@ name: Repository Synchronization
         default: false
         type: boolean
 
+# Minimal permissions for security (principle of least privilege)
+permissions:
+  contents: read
+
 jobs:
   sync:
     name: Synchronize Repositories

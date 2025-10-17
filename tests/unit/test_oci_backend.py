@@ -3,6 +3,7 @@
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
+from urllib.parse import urlparse
 
 import pytest
 
@@ -549,8 +550,9 @@ class TestOCIBackend:
 
             # Assert
             assert url is not None
-            assert "objectstorage.us-ashburn-1.oraclecloud.com" in url
-            assert "/p/abc123/" in url
+            parsed = urlparse(url)
+            assert parsed.netloc == "objectstorage.us-ashburn-1.oraclecloud.com"
+            assert "/p/abc123/" in parsed.path
 
     def test_initializes_with_explicit_config_file(self):
         """Test that OCIBackend accepts explicit config file path."""

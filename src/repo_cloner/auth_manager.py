@@ -76,9 +76,15 @@ class AuthManager:
         Returns:
             Platform name ("github" or "gitlab")
         """
-        if "github.com" in url:
+        # Parse URL to safely check hostname
+        parsed = urlparse(url)
+        hostname = parsed.netloc.lower()
+
+        # Check if it's a GitHub domain
+        if hostname == "github.com" or hostname.endswith(".github.com"):
             return "github"
-        elif "gitlab" in url:
+        # Check if it's a GitLab domain (including self-hosted)
+        elif hostname == "gitlab.com" or hostname.endswith(".gitlab.com") or "gitlab" in hostname:
             return "gitlab"
         else:
             raise ValueError(f"Cannot auto-detect platform from URL: {url}")

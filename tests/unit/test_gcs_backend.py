@@ -3,6 +3,7 @@
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
+from urllib.parse import urlparse
 
 import pytest
 
@@ -504,9 +505,10 @@ class TestGCSBackend:
 
             # Assert
             assert url is not None
-            assert "storage.googleapis.com" in url
-            assert "archive.tar.gz" in url
-            assert "X-Goog-Signature" in url
+            parsed = urlparse(url)
+            assert parsed.netloc == "storage.googleapis.com"
+            assert "archive.tar.gz" in parsed.path
+            assert "X-Goog-Signature" in parsed.query
 
     def test_initializes_with_explicit_credentials(self):
         """Test that GCSBackend accepts explicit service account JSON path."""

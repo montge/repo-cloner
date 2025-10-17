@@ -3,6 +3,7 @@
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
+from urllib.parse import urlparse
 
 import pytest
 
@@ -528,9 +529,10 @@ class TestAzureBlobBackend:
 
                 # Assert
                 assert url is not None
-                assert "teststorage.blob.core.windows.net" in url
-                assert "archive.tar.gz" in url
-                assert "sv=" in url  # SAS token present
+                parsed = urlparse(url)
+                assert parsed.netloc == "teststorage.blob.core.windows.net"
+                assert "archive.tar.gz" in parsed.path
+                assert "sv=" in parsed.query  # SAS token present
 
     def test_initializes_with_explicit_credentials(self):
         """Test that AzureBlobBackend accepts explicit credentials."""
